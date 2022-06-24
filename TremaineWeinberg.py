@@ -237,9 +237,14 @@ class TW:
 
 
 
-    def plot_V_curve(self,standalone = True):
+    def plot_V_curve(self,standalone = True, plot_barlen = False):
         '''
         Plots the velocity curve.
+
+        Note to self: the orange cross doesn't always seem to hit perfectly.
+         This is because the velocity curve is made with the best-fit params, 
+         while the Rcr is set using the median of the MCMC. 
+         That median doesn't always equal the one obtained with best-fit params.
         '''
 
         if standalone:
@@ -263,6 +268,9 @@ class TW:
         #  add the best fit
         ys_fit = velFunc(xs,self.V_curve_fit_params[0][0],self.V_curve_fit_params[0][1])
         plt.plot(xs,ys_fit,c='black', zorder =1, lw = 2,alpha=0.8)
+
+        if plot_barlen:
+            plt.axvline(self.barlen_deproj/2, linestyle = ':', c='black', lw=2)
 
         plt.xlabel('Distance [arcsec]')
         plt.ylabel('V [km/s]')
@@ -1151,7 +1159,7 @@ def determine_pattern_speed(stellar_flux, X_Sigma, V_Sigma, apers, inc, method, 
         flux = float(phot_table_flux['aperture_sum'])
 
         if flux == 0:
-            continue #actually, no just ignore
+            continue #just ignore
         else: #can I ignore the snr and forbidden_labels here?
             #phot_table_X = aperture_photometry(X_Sigma.value, aper, method = method, mask = ( (X_Sigma.pixmask.get_mask(forbidden_labels)>=1) | mapplot.mask_low_snr(X_Sigma.value, X_Sigma.ivar, snr_min = snr_min)))
             #phot_table_X = aperture_photometry(X_Sigma.value, aper, method = method, mask = ( (X_Sigma.pixmask.get_mask(forbidden_labels)>=1)))
@@ -1345,11 +1353,7 @@ def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, 
                     arcsec.append(on_sky_xy_rect_corr[i][j])
 
 
-
-    #print(f'Lengths of lists: {len(arcsec)}, {len(vel)}')
-
     # Fit profile with basic 2 param arctan function
-
     if len(arcsec) > 0 and len(vel) > 0:
         popt, pcov = curve_fit(velFunc, arcsec, vel, bounds = (0, np.inf))
         MSE = np.sum( (vel - velFunc(arcsec,popt[0],popt[1]))**2)
