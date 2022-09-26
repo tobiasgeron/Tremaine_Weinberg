@@ -402,6 +402,7 @@ class TW:
         Standalone is only an option when asking for only one map to be drawn.
 
         TODO: If only asking for one, give option to make standalone 
+        no plot_barlen()?
         '''
 
         if standalone == False:
@@ -481,6 +482,7 @@ class TW:
         pixscale is in arcsec/pix
 
         plot_slits not working
+        TODO: remove image_dir arg
         '''
 
         
@@ -493,7 +495,12 @@ class TW:
         if standalone:
             plt.figure()
         #img = plot_decals_image(ra,dec,image_dir, origin = 'lower', pixscale = pixscale) #old, for when picture came from DECaLS
-        img = im.plot()
+        
+        
+        #img = im.plot() #cannot call im.plot(), as then it always returns new figure and the standalone arg doesn't work.
+        plt.imshow(im.data, origin = 'lower')
+        plt.xticks([])
+        plt.yticks([])
 
         centre_manga = self.centre
         #centre_img = (math.ceil(img.shape[0]/2),math.ceil(img.shape[1]/2)) #old, for when picture came from DECaLS
