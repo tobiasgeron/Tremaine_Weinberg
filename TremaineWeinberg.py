@@ -89,7 +89,7 @@ class TW:
     '''
     TODO: 
     '''
-    def __init__(self,PA,inc,barlen,PA_bar,maps, forbidden_labels, snr_min, bintype, PA_err,inc_err,barlen_err,PA_bar_err,func_adjust_flux,slit_width, cosmo, redshift):
+    def __init__(self,PA,inc,barlen,PA_bar,maps, forbidden_labels, snr_min, PA_err,inc_err,barlen_err,PA_bar_err,func_adjust_flux,slit_width, cosmo, redshift):
         '''
         PA: position angle of galaxy, in degrees.
         inc: inclination of galaxy, in degrees
@@ -118,6 +118,7 @@ class TW:
         # get all relevant MaNGA maps
         self.forbidden_labels = forbidden_labels
         self.snr_min = snr_min
+        bintype = maps.bintype.name
         if bintype == 'SPX':
             self.stellar_flux = func_adjust_flux(np.flip(maps['spx_mflux'],0))
         elif bintype in ['HYB10','VOR10','BIN']:
@@ -554,7 +555,7 @@ class TW:
 def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, 
                         slit_separation = 0, slit_width = 1, method = 'center', 
                         forbidden_labels = ['DONOTUSE','UNRELIABLE','NOCOV'], snr_min = 0,
-                        bintype = 'SPX', PA_err = 0, inc_err = 0, barlen_err = 0, PA_bar_err = 0, 
+                        PA_err = 0, inc_err = 0, barlen_err = 0, PA_bar_err = 0, 
                         n_MC = 0, corot_method = 'geron',
                         Vc = 0, correct_velcurve = True, deproject_bar = True,
                         h_method = 'individual', garma_oehmichen_correction = False,
@@ -576,7 +577,6 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps,
     slit_separation in arcsec
     slit_width in arcsec
     method is the integration method used with the apertures. Can be either 'center' or 'exact'
-    bintype can be either 'SPX' or 'HYB10', 'VOR10' or 'BIN'. The latter three are the same here.
     PA_err is the error (stdev) in the galaxy PA. Used to determine the error on Omega_bar. 
     n_MC is the amount of Monte Carlo loops used to determine the error on Omega_bar. Suggested to be 1000.
     if corot_method == 'Vc_userinput', then you also need to provide Vc value.
@@ -595,7 +595,7 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps,
 
 
     #Part 0: initialise class and other stuff
-    tw = TW(PA, inc, barlen, PA_bar, maps, forbidden_labels, snr_min, bintype, PA_err, inc_err, barlen_err, PA_bar_err, func_adjust_flux, slit_width,cosmo, redshift) 
+    tw = TW(PA, inc, barlen, PA_bar, maps, forbidden_labels, snr_min, PA_err, inc_err, barlen_err, PA_bar_err, func_adjust_flux, slit_width,cosmo, redshift) 
     pixscale = get_pixscale(tw)
     centre = get_centre(tw.stellar_flux)
 
