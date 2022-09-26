@@ -10,6 +10,10 @@ Géron et al. (2022): in prep.
 
 
 TODO: 
+Major:
+-Change PA to be East or North!!!
+
+Minor:
 - Lmax also limited by low SNR and other spaxels that aren't symmetric though? -> No cause often middle of 
 stellar_vel map has low SNR so slits would have very low/nonexistent length?
 -fix slit width and slit separation? Now they are confusing.
@@ -51,6 +55,7 @@ from photutils.aperture import RectangularAperture
 from photutils.aperture import aperture_photometry
 from photutils.isophote import Ellipse
 from photutils.isophote import build_ellipse_model
+from marvin.tools.image import Image
 from scipy.ndimage import gaussian_filter
 import math
 from scipy.optimize import curve_fit
@@ -59,11 +64,10 @@ import time
 import pickle
 import csv
 
-
 import sys
 sys.path.append('/Users/geron/Documents/Projects/functions')
 from mangaplots import mangacolorplot
-from get_decals_images import make_png_from_fits, dr2_style_rgb, nonlinear_map, save_carefully_resized_png, plot_decals_image, create_image_directory
+#from get_decals_images import make_png_from_fits, dr2_style_rgb, nonlinear_map, save_carefully_resized_png, plot_decals_image, create_image_directory #no longer needed, for when plotting from DECaLS
 
 
 
@@ -392,7 +396,7 @@ class TW:
 
 
 
-    def plot_maps(self, maps = ['stellar_flux','stellar_vel'], plot_LON = False, plot_slits = False, plot_apers = False, standalone = True):
+    def plot_maps(self, maps = ['stellar_flux','stellar_vel'], plot_LON = False, plot_slits = False, plot_apers = False, standalone = True, plot_colorbar=True):
         '''
         Plots flux and velocity maps.
         Standalone is only an option when asking for only one map to be drawn.
@@ -438,7 +442,7 @@ class TW:
             if standalone:
                 plt.subplot(1,n_plots,i+1)
             if maps[i] in ['stellar_vel','stellar_flux']:
-                mangacolorplot(mapp,preset=preset,colorbar=True, mask_keywords = self.forbidden_labels, snr_min = self.snr_min)
+                mangacolorplot(mapp,preset=preset,colorbar=plot_colorbar, mask_keywords = self.forbidden_labels, snr_min = self.snr_min)
             else:
                 plt.pcolormesh(mapp)
                 plt.colorbar()
@@ -469,25 +473,31 @@ class TW:
             plt.show()
 
 
-    def plot_img(self,ra,dec, image_dir = '../output/gal_images_DECaLS/', pixscale = 0.15, plot_apers = True, plot_barlen = True, standalone = True, plot_slits=True):
+    def plot_img(self, image_dir = '../output/gal_images_DECaLS/', pixscale = 0.15, n_pix = 424, plot_apers = True, plot_barlen = True, standalone = True, plot_slits=True):
         '''
-        Needs ra and dec, will plot grz image. Has to option to overlay the apertures.
+        Will plot grz image. Has to option to overlay the apertures.
         Does need the custom functions we created to pull the images.
 
         pixscale is in arcsec/pix
 
-        remove my plot_decals_image bit
-        maybe add option to view sdss?
-        I think you can view a galaxy using MaNGA... look into this
+        plot_slits not working
         '''
-        create_image_directory(image_dir)
+
+        
+        im = Image(self.plateifu)
+        im.get_new_cutout(n_pix*pixscale, n_pix*pixscale, scale=pixscale)
+        ra,dec = im.ra, im.dec
+
+        #create_image_directory(image_dir)
 
         if standalone:
             plt.figure()
-        img_grz = plot_decals_image(ra,dec,image_dir, origin = 'lower', pixscale = pixscale)
+        #img = plot_decals_image(ra,dec,image_dir, origin = 'lower', pixscale = pixscale) #old, for when picture came from DECaLS
+        img = im.plot()
 
         centre_manga = self.centre
-        centre_img = (math.ceil(img_grz.shape[0]/2),math.ceil(img_grz.shape[1]/2))
+        #centre_img = (math.ceil(img.shape[0]/2),math.ceil(img.shape[1]/2)) #old, for when picture came from DECaLS
+        centre_img = (math.ceil(n_pix/2), math.ceil(n_pix/2))
 
         pixscale_manga = self.pixscale
         pixscale_img = pixscale 
@@ -520,7 +530,7 @@ class TW:
             points = get_slit_centres(self.stellar_flux,self.slits,centre_manga)
 
             for i in range(len(self.slits)):
-                xs_slit = np.linspace(0,img_grz.shape[0],10)
+                xs_slit = np.linspace(0,img.shape[0],10)
                 ys_slit = xs_slit * self.slits[i][0] + self.slits[i][1]
                 plt.plot(xs_slit,ys_slit,color='red')
         
@@ -595,10 +605,6 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps,
 
     #n_MC += 1 #always add one, last one will be with normal PA, and will be used for the figures, but not saved in the MC loops
     
-    #Omega_lst = []
-    #R_corot_lst = []
-    #R_lst = []
-
     for n in range(n_MC+1):
         if n == n_MC: #means we're over the MC. Doing one more round with the best-fit values for the figures.
             PA_temp = PA
@@ -627,12 +633,6 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps,
         # Adjust barlen_temp if needed
         if barlen_temp < 0:
             barlen_temp = 0
-
-        
-
-
-        #print(PA_temp,inc_temp,PA_bar_temp,barlen_temp)
-
 
         prev = time.time()
 
@@ -706,11 +706,6 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps,
 
         if n < n_MC or n_MC == 0:
             tw.save_intermediate_MC_results(apers,Omega,R_corot,R,2*bar_rad_deproj,[Xs, Vs],z,[arcsec, vel],V_curve_fit_params)
-            #Omega_lst.append(Omega)
-            #R_corot_lst.append(R_corot)
-            #R_lst.append(R)
-
-
 
     Omega = np.nanmedian(tw.Omega_lst)
     R_corot = np.nanmedian(tw.R_corot_lst)
