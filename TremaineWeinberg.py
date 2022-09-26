@@ -12,6 +12,7 @@ Géron et al. (2022): in prep.
 TODO: 
 Major:
 -Change PA to be East or North!!!
+-Remove need of mangaplots function. Maybe simplify and add here?
 
 Minor:
 - Lmax also limited by low SNR and other spaxels that aren't symmetric though? -> No cause often middle of 
@@ -124,18 +125,12 @@ class TW:
         elif bintype in ['HYB10','VOR10','BIN']:
             self.stellar_flux = func_adjust_flux(np.flip(maps['bin_mflux'],0))
         self.stellar_vel = np.flip(maps['stellar_vel'],0)
-        #self.radius = np.flip(maps['spx_ellcoo_r_h_kpc'],0) #not needed anymore
-        self.on_sky_x = np.flip(maps['spx_ellcoo_on_sky_x'],0) #arcsec
+        self.on_sky_x = np.flip(maps['spx_ellcoo_on_sky_x'],0) #arcsec #should be spx_skycoo?
         self.on_sky_y = np.flip(maps['spx_ellcoo_on_sky_y'],0) #arcsec
-        #self.on_sky_ellcoo = np.flip(maps['spx_ellcoo_elliptical_radius'],0) #not needed anymore
         self.on_sky_xy = np.sqrt(self.on_sky_x.value**2 + self.on_sky_y.value**2)
 
         #Vsys correction
         self.stellar_vel, self.Vsys_corr = get_Vsys(self.stellar_vel, self.on_sky_xy, 5, forbidden_labels)
-        #self.success = True #set true, if any checks fail, set this to false
-
-
-
 
         #initialse lsts we want to track over all MC runs
         self.apers_lst = []
@@ -146,7 +141,6 @@ class TW:
         self.R_lst = []
         self.barlen_deproj_lst = []
 
-
     def save_intermediate_MC_results(self,apers,Omega,R_corot,R,barlen_deproj,X_V,z,V_curve,V_curve_fit_params):
         self.apers_lst.append(apers)
         self.Omega_lst.append(Omega)
@@ -154,10 +148,7 @@ class TW:
         self.R_lst.append(R)
         self.barlen_deproj_lst.append(barlen_deproj)
 
-
-
         # Calculate normalised root mean squared error (NRMSE) for the X_V fit and the V_curve fit. 
-        
         if len(apers) > 2: #i.e. there is more than one slit
             self.NRMSE_X_V_lst.append(np.sqrt(z[1][0]/len(X_V[0])) / ( np.max(X_V[1]) - np.min(X_V[1]) )) #https://en.wikipedia.org/wiki/Root-mean-square_deviation
         elif len(apers) == 2: #with two slits, no uncertainty possible
@@ -318,11 +309,8 @@ class TW:
         plt.axvline(UL, c='black', ls='--')
         plt.xlabel(title)
 
-    
         string = str(np.round(var,2))+ "$^{+" + str(np.round(var_err[1],2)) + "}_{-" + str(np.round(var_err[0],2)) + "}$"
         plt.text(0.95,0.8,string, fontsize=16, transform=plt.gca().transAxes, horizontalalignment='right')
-
-
 
         if standalone:
             plt.show()
@@ -337,7 +325,6 @@ class TW:
         xs = np.linspace(np.min(self.X_V[0]),np.max(self.X_V[0]))
         ys = xs*z[0][0]+z[0][1]
 
-        #add text
         #fig, ax = plt.subplots()
         if standalone:
             plt.figure(figsize = (5,5))
@@ -402,7 +389,6 @@ class TW:
         Plots flux and velocity maps.
         Standalone is only an option when asking for only one map to be drawn.
 
-        TODO: If only asking for one, give option to make standalone 
         no plot_barlen()?
         '''
 
@@ -1114,6 +1100,7 @@ def get_aper(slit_centre, slit_width, slit_theta, stellar_vel, h_method = 'indiv
         aper = RectangularAperture(slit_centre, w = slit_width, h = stellar_vel.shape[0]*np.sqrt(2), theta = slit_theta)
     
     return aper
+
 
 
 
