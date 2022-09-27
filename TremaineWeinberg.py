@@ -66,8 +66,8 @@ import pickle
 import csv
 
 import sys
-sys.path.append('/Users/geron/Documents/Projects/functions')
-from mangaplots import mangacolorplot
+#sys.path.append('/Users/geron/Documents/Projects/functions')
+#from mangaplots import mangacolorplot
 #from get_decals_images import make_png_from_fits, dr2_style_rgb, nonlinear_map, save_carefully_resized_png, plot_decals_image, create_image_directory #no longer needed, for when plotting from DECaLS
 
 
@@ -360,16 +360,23 @@ class TW:
             preset = 'velocities'
             title = 'stellar velocity'
         elif mapp == 'X_Sigma':
-            mapp = self.X_Sigma.value
+            #mapp = self.X_Sigma.value
+            mapp = self.X_Sigma
             title = r'X $\Sigma$'
         elif mapp == 'V_Sigma':
-            mapp = self.V_Sigma.value
+            #mapp = self.V_Sigma.value
+            mapp = self.V_Sigma
             title = r'V $\Sigma$'
 
         if standalone:
-            plt.figure(figsize = (5,5))
-        mangacolorplot(mapp,preset='velocities',colorbar=True, mask_keywords=self.forbidden_labels, snr_min = self.snr_min)
+            plt.figure(figsize = (5,4))
+        #mangacolorplot(mapp,preset='velocities',colorbar=True, mask_keywords=self.forbidden_labels, snr_min = self.snr_min)
         
+        fig = plt.gcf()
+        ax = plt.gca()
+        mapplot.plot(dapmap = mapp,fig=fig,ax = ax)
+        plt.title(title)
+                
         plt.xlim(0, mapp.shape[0])
         plt.ylim(0, mapp.shape[1])
 
@@ -384,12 +391,14 @@ class TW:
 
 
 
-    def plot_maps(self, maps = ['stellar_flux','stellar_vel'], plot_LON = False, plot_slits = False, plot_apers = False, standalone = True, plot_colorbar=True):
+    def plot_maps(self, maps = ['stellar_flux','stellar_vel'], plot_LON = False, plot_slits = False, plot_apers = False, standalone = True, plot_colorbar=True, cbar_labels = ''):
         '''
         Plots flux and velocity maps.
         Standalone is only an option when asking for only one map to be drawn.
+        cbar_labels: can add list of str which will be the labels on the colorbars
 
         no plot_barlen()?
+        No longer needing plot_colorbar
         '''
 
         if standalone == False:
@@ -443,10 +452,15 @@ class TW:
             #    plt.pcolormesh(mapp)
             #    plt.colorbar()
 
-            if maps[i] in ['X_map']:
+            if cbar_labels == '': #if no predefined colorbar label, will put unit there
+                cb_label = unit 
+            else:
+                cb_label = cbar_labels[i]
+
+            if maps[i] in ['X_map']: #X_map is a special case.
                 fig = plt.gcf()
                 ax = plt.gca()
-                mapplot.plot(value = mapp,fig=fig,ax = ax, cblabel = unit)
+                mapplot.plot(value = mapp,fig=fig,ax = ax, cblabel = cb_label)
                 plt.title(title)
                 plt.xlim(0, mapp.shape[0])
                 plt.ylim(0, mapp.shape[1])
@@ -454,7 +468,7 @@ class TW:
             else:
                 fig = plt.gcf()
                 ax = plt.gca()
-                mapplot.plot(dapmap = mapp,fig=fig,ax = ax, cblabel = unit)
+                mapplot.plot(dapmap = mapp,fig=fig,ax = ax, cblabel = cb_label)
                 plt.title(title)
                 plt.xlim(0, mapp.shape[0])
                 plt.ylim(0, mapp.shape[1])
@@ -1027,7 +1041,7 @@ def plot_aper_contours(aper, color = 'white', aper_type = 'RectAper', ls = '-', 
                                      b_in = aper.b_in, b_out = aper.b_out,
                                      theta = aper.theta)
 
-    aper_plot.plot(color=color, ls = ls, alpha = alpha,zorder = 100)
+    aper_plot.plot(color=color, ls = ls, alpha = alpha, zorder = 100)
 
 def create_hexagon_map(mapp,forbidden_labels):
     newmap = np.full_like(mapp.value,0)
@@ -1283,6 +1297,7 @@ def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, 
     vel = []
 
     if velcurve_method == 'apers':
+        # Will average in different bins. But not good, the 'all' method is better. Remove this.
         #Find the elliptical annuli
         n_pix = centre[0] #amount of pixels in one radius length
         n_bins = int(stellar_vel.shape[0]/4) #kind of arbitrary. For 76x76 image, it'll give 20 bins
