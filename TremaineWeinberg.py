@@ -399,57 +399,78 @@ class TW:
 
         n_plots = len(maps)
         for i in maps:
-            assert i in ['stellar_flux','stellar_vel','X_map','X_Sigma','V_Sigma'], "Can only plot: 'stellar_flux','stellar_vel','X_Sigma' or 'V_Sigma'"
+            assert i in ['stellar_flux','stellar_vel','X_map','X_Sigma','V_Sigma'], "Can only plot: 'stellar_flux', 'stellar_vel', ' X_map', 'X_Sigma' or 'V_Sigma'"
 
         if plot_slits:
             plot_LON = False #otherwise LON will be plotted twice
 
         if standalone:
-            plt.figure(figsize = (5*n_plots,5))
+            plt.figure(figsize = (5*n_plots,4))
 
         for i in range(n_plots):
             #determine which map to plot
             if maps[i] == 'stellar_flux':
                 mapp = self.stellar_flux
-                preset = 'default'
+                unit = r'1 x 10$^{-17}$ erg s$^{-1}$ spaxel$^{-1}$ cm$^{-2}$'
+                #preset = 'default'
                 title = 'stellar flux'
             elif maps[i] == 'stellar_vel':
                 mapp = self.stellar_vel
-                preset = 'velocities'
+                unit = r'km s$^{-1}$'
+                #preset = 'velocities'
                 title = 'stellar velocity'
             elif maps[i] == 'X_map':
                 mapp = self.X_map
+                unit = 'arcsec'
                 title = r'X'
             elif maps[i] == 'X_Sigma':
-                mapp = self.X_Sigma.value
+                #mapp = self.X_Sigma.value #old way, when doing with pcolormesh
+                mapp = self.X_Sigma
+                unit = r'1 x 10$^{-17}$ erg arcsec s$^{-1}$ spaxel$^{-1}$ cm$^{-2}$'
                 title = r'X $\Sigma$'
             elif maps[i] == 'V_Sigma':
-                mapp = self.V_Sigma.value
+                #mapp = self.V_Sigma.value #old way, when doing with pcolormesh
+                mapp = self.V_Sigma
+                unit = r'1 x 10$^{-17}$ erg km s$^{-2}$ spaxel$^{-1}$ cm$^{-2}$'
                 title = r'V $\Sigma$'
 
             if standalone:
                 plt.subplot(1,n_plots,i+1)
-            if maps[i] in ['stellar_vel','stellar_flux']:
-                mangacolorplot(mapp,preset=preset,colorbar=plot_colorbar, mask_keywords = self.forbidden_labels, snr_min = self.snr_min)
+            
+            #if maps[i] in ['stellar_vel','stellar_flux']:
+            #    mangacolorplot(mapp,preset=preset,colorbar=plot_colorbar, mask_keywords = self.forbidden_labels, snr_min = self.snr_min)
+            #else:
+            #    plt.pcolormesh(mapp)
+            #    plt.colorbar()
+
+            if maps[i] in ['X_map']:
+                fig = plt.gcf()
+                ax = plt.gca()
+                mapplot.plot(value = mapp,fig=fig,ax = ax, cblabel = unit)
+                plt.title(title)
+                plt.xlim(0, mapp.shape[0])
+                plt.ylim(0, mapp.shape[1])
+
             else:
-                plt.pcolormesh(mapp)
-                plt.colorbar()
-            plt.title(title)
-            plt.xlim(0, mapp.shape[0])
-            plt.ylim(0, mapp.shape[1])
+                fig = plt.gcf()
+                ax = plt.gca()
+                mapplot.plot(dapmap = mapp,fig=fig,ax = ax, cblabel = unit)
+                plt.title(title)
+                plt.xlim(0, mapp.shape[0])
+                plt.ylim(0, mapp.shape[1])
 
             #LON
             if plot_LON:
                 xs_LON = np.linspace(0,mapp.shape[0],10)
                 ys_LON = xs_LON * self.LON[0] + self.LON[1]
-                plt.plot(xs_LON,ys_LON,color='red')
+                plt.plot(xs_LON,ys_LON,color='red',zorder = 100)
 
             #slits
             if plot_slits:
                 for i in range(len(self.slits)):
                     xs_slit = np.linspace(0,mapp.shape[0],10)
                     ys_slit = xs_slit * self.slits[i][0] + self.slits[i][1]
-                    plt.plot(xs_slit,ys_slit,color='red')
+                    plt.plot(xs_slit,ys_slit,color='red',zorder = 100)
 
             #apers
             if plot_apers:
@@ -659,7 +680,6 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps,
         for i, s in enumerate(slits):
             aper = get_aper(points[i], slit_width/pixscale, (PA_temp-90)/180*np.pi, tw.stellar_vel, h_method = h_method, hex_map = hex_map)
             
-
             if aper.h > tw.stellar_vel.shape[0]/3: #ensure that it is not too short
                 apers.append(aper)
 
@@ -754,22 +774,6 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps,
 
 # Part 0: Prepare MaNGA masks
 
-def apply_masks(mapp, forbidden_labels = ['DONOTUSE']):
-    '''
-    NOT IN USE ANYMORE - USING MANGA MASKS NOW. REMOVE IN NEXT VERSION
-    MaNGA maps come with various labels that tell us whether to use a certain pixel. We will filter out those 
-    pixels here and set those values to np.nan, instead of 0.
-    '''
-
-    for i in range(len(mapp)):
-        for j in range(len(mapp[i])):
-            for l in mapp[i][j].pixmask.labels:
-                if l in forbidden_labels:
-                    mapp.value[i][j] = np.nan
-
-    return mapp
-
-
 def get_Vsys(stellar_vel, on_sky_xy, arcsec_range, forbidden_labels = ['DONOTUSE']):
     '''
     It looks like not all MaNGA maps have Vsys correctly removed. We can estimate Vsys by looking at the 
@@ -788,7 +792,6 @@ def get_Vsys(stellar_vel, on_sky_xy, arcsec_range, forbidden_labels = ['DONOTUSE
                     central_vels.append(stellar_vel_value[i][j])
     
     Vsys = np.nanmean(central_vels)
-
 
     # apply Vsys
     for i in range(len(stellar_vel)):
@@ -964,8 +967,6 @@ def get_pseudo_slits(mapp,LON,PA, PA_bar, barlength, centre, sep = 1, width_slit
     return pseudo_slits
 
 
-
-
 # Part 3: Get actual apertures
 def get_slit_centres(mapp,slits,centre):
     '''
@@ -1026,7 +1027,7 @@ def plot_aper_contours(aper, color = 'white', aper_type = 'RectAper', ls = '-', 
                                      b_in = aper.b_in, b_out = aper.b_out,
                                      theta = aper.theta)
 
-    aper_plot.plot(color=color, ls = ls, alpha = alpha)
+    aper_plot.plot(color=color, ls = ls, alpha = alpha,zorder = 100)
 
 def create_hexagon_map(mapp,forbidden_labels):
     newmap = np.full_like(mapp.value,0)
@@ -1053,29 +1054,8 @@ def get_aper(slit_centre, slit_width, slit_theta, stellar_vel, h_method = 'indiv
     '''
 
     if h_method == 'individual':
-        '''
-        Before, the algorithm started with an h of 0, and added one pixel to it at the time. However, this took a while.
-        '''
 
-        """
-        h = 2
-        h_stepsize = 1 #can edit this
-        temp = 0.0
-
-        n_loops = 0
-    
-        while temp == 0.0:
-            aper = RectangularAperture(slit_centre, w = slit_width, h = h, theta = slit_theta) #think I need to put h+=h_stepsize first
-            temp = float(aperture_photometry(hex_map, aper, method = 'center')['aperture_sum'])
-            h+=h_stepsize
-            n_loops+=1
-        
-        h-=h_stepsize
-        aper = RectangularAperture(slit_centre, w = slit_width, h = h, theta = slit_theta)
-        #add a minimum aper length value?
-        """
-
-        #algorithm will now take big steps steps first, until it overshoots. Then reduce stepsize to finetune
+        #algorithm will take big steps steps first, until it overshoots. Then reduce stepsize to finetune
         #this is done for speeding up the code. 
         h = 1
 
@@ -1102,9 +1082,6 @@ def get_aper(slit_centre, slit_width, slit_theta, stellar_vel, h_method = 'indiv
     return aper
 
 
-
-
-
 # Part 4: Create X * Sigma and Vlos * Sigma maps
 
 def is_left_of(line,point):
@@ -1115,7 +1092,11 @@ def is_left_of(line,point):
     else:
         return 1
 
+
 def create_X_map(mapp, LON, centre, sep):
+    '''
+    x-axis should be aligned with LON.
+    '''
     empty = np.full_like(mapp.value,np.nan)
 
     m_pLON = -1/LON[0] #m1 * m2 = -1 for perpendicular lines
@@ -1124,10 +1105,9 @@ def create_X_map(mapp, LON, centre, sep):
     for i in range(len(empty)):
         for j in range(len(empty[i])):
             #find distance between i,j and line
-            # See https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
             
             a, b, c = m_pLON, -1, b_pLON
-            dist = np.abs(a*j+b*i+c)/np.sqrt(a**2+b**2)
+            dist = np.abs(a*j+b*i+c)/np.sqrt(a**2+b**2) #https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
             
             empty[i][j] = is_left_of([m_pLON, b_pLON],[j,i])*dist*sep
     
