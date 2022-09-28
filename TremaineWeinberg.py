@@ -496,12 +496,14 @@ class TW:
             plt.show()
 
 
-    def plot_img(self, image_dir = '../output/gal_images_DECaLS/', pixscale = 0.15, n_pix = 424, plot_apers = True, plot_barlen = True, standalone = True, plot_slits=True):
+    def plot_img(self, image_dir = '../output/gal_images_DECaLS/', pixscale = 0.15, n_pix = 424, standalone = True, plot_apers = False, plot_barlen = False, plot_slits=False, plot_hexagon = False):
         '''
         Will plot grz image. Has to option to overlay the apertures.
         Does need the custom functions we created to pull the images.
 
         pixscale is in arcsec/pix
+
+        Need to have Marvin properly setup for this to work.
 
         plot_slits not working
         TODO: remove image_dir arg
@@ -550,6 +552,10 @@ class TW:
                     [centre_img[0] + np.sin(self.PA_bar/180*np.pi)*barlen_pix/2, centre_img[0] - np.sin(self.PA_bar/180*np.pi)*barlen_pix/2], 
                     c='yellow')
 
+        if plot_hexagon:
+            ax = plt.gca()
+            im.overlay_hexagon(ax, color='magenta', linewidth=1)
+
         #slits
         """
         if plot_slits:
@@ -580,7 +586,7 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps,
                         n_MC = 0, corot_method = 'geron',
                         Vc = 0, correct_velcurve = True, deproject_bar = True,
                         h_method = 'individual', garma_oehmichen_correction = False,
-                        cosmo = [], redshift = np.nan, velcurve_method = 'all',
+                        cosmo = [], redshift = np.nan,
                         aper_rect_width = 5, correct_xy = True, func_adjust_flux = lambda x:x,
                         print_times = False):
     '''
@@ -601,8 +607,6 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps,
     PA_err is the error (stdev) in the galaxy PA. Used to determine the error on Omega_bar. 
     n_MC is the amount of Monte Carlo loops used to determine the error on Omega_bar. Suggested to be 1000.
     if corot_method == 'Vc_userinput', then you also need to provide Vc value.
-    velcurve_method can be in ['all','apers']
-
     The PAs are defined as counterclockwise from 3 o'clock. 
 
     func_adjust_flux is for testing purposes, will be applied to stellar flux map. Remove this in final version. Can only include
@@ -719,7 +723,7 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps,
         prev = time.time()
 
         # Step 6: Find V curve and corotation radius
-        R_corot, vel, arcsec, V_curve_apers, V_curve_fit_params = determine_corotation_radius(Omega, tw.stellar_vel, tw.on_sky_xy, centre, PA_temp, inc_temp, maps, method, forbidden_labels = tw.forbidden_labels, corot_method = corot_method, Vc_input = Vc, correct_velcurve = correct_velcurve, velcurve_method = velcurve_method, aper_rect_width = aper_rect_width, correct_xy = correct_xy)
+        R_corot, vel, arcsec, V_curve_apers, V_curve_fit_params = determine_corotation_radius(Omega, tw.stellar_vel, tw.on_sky_xy, centre, PA_temp, inc_temp, maps, method, forbidden_labels = tw.forbidden_labels, corot_method = corot_method, Vc_input = Vc, correct_velcurve = correct_velcurve, aper_rect_width = aper_rect_width, correct_xy = correct_xy)
         delta_PA = np.abs(PA_temp - PA_bar_temp)
         if deproject_bar:
             bar_rad_deproj = barlen_temp/2 * np.sqrt(np.cos(delta_PA/180*np.pi)**2 + np.sin(delta_PA/180*np.pi)**2 / np.cos(inc_temp/180*np.pi)**2) #https://ui.adsabs.harvard.edu/abs/2007MNRAS.381..943G/abstract
@@ -1248,7 +1252,7 @@ def velFunc(xdata, Vflat,rt):
     return Vsys + 2/np.pi * Vflat * np.arctan((xdata-r0)/rt)
 
 
-def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, maps, method, forbidden_labels = ['DONOTUSE'], corot_method = 'geron', Vc_input = 0, correct_velcurve = True, velcurve_method = 'apers', aper_rect_width = 10, correct_xy = True):
+def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, maps, method, forbidden_labels = ['DONOTUSE'], corot_method = 'geron', Vc_input = 0, correct_velcurve = True, aper_rect_width = 10, correct_xy = True):
     '''
     TODO: change the method names etc
 
@@ -1296,45 +1300,15 @@ def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, 
     arcsec = []
     vel = []
 
-    if velcurve_method == 'apers':
-        # Will average in different bins. But not good, the 'all' method is better. Remove this.
-        #Find the elliptical annuli
-        n_pix = centre[0] #amount of pixels in one radius length
-        n_bins = int(stellar_vel.shape[0]/4) #kind of arbitrary. For 76x76 image, it'll give 20 bins
-        binsize_pix = n_pix / n_bins
-        apers_circ = []
-        a_in = 0.1 #cannot be 0
-        eps = 1 - np.cos(inc/180*np.pi) # eps = 1- b/a = 1 - cos(i)
-        #a is semimajor axis, b is semiminor axis
-        for i in range(n_bins):
-            a_out = a_in + binsize_pix
-            b_in = a_in * (1 - eps)
-            b_out = a_out * (1 - eps)
-            aper = EllipticalAnnulus(centre, a_in = a_in, a_out = a_out, b_out = b_out, 
-                                    b_in = b_in, theta = (PA)/180*np.pi)
-            apers_circ.append(aper) 
-            a_in = a_out
-
-        for aper in apers_circ:
-            n_pix_vel = get_n_pix_in_aper(stellar_vel_rect_corr, aper, method = method)
-            n_pix_arcsec = get_n_pix_in_aper(on_sky_xy_rect_corr, aper, method = method)
-            if n_pix_vel >= 10 and n_pix_arcsec >= 10 :
-                phot_table = aperture_photometry(np.abs(stellar_vel_rect_corr), aper, method = method)
-                vel.append(float(phot_table['aperture_sum']/n_pix_vel))
-
-                phot_table = aperture_photometry(on_sky_xy_rect_corr, aper, method = method)
-                arcsec.append(float(phot_table['aperture_sum']/n_pix_arcsec))
-
-    if velcurve_method == 'all':
-        #stellar_vel_mask = aper_rect.to_mask(method = method).to_image(shape = (stellar_vel.shape))
-        #on_sky_xy_mask = aper_rect.to_mask(method = method).to_image(shape = (on_sky_xy.shape))
-        apers_circ = []
-        #print(np.array(stellar_vel_rect_corr).shape)
-        for i in range(len(stellar_vel_rect_corr)):
-            for j in range(len(stellar_vel_rect_corr[i])):
-                if stellar_vel_rect_corr[i][j] != 0.0 and on_sky_xy_rect_corr[i][j] != 0.0: #0.0 can be either because of outside rect apers or because no data.
-                    vel.append(np.abs(stellar_vel_rect_corr[i][j]))
-                    arcsec.append(on_sky_xy_rect_corr[i][j])
+    #stellar_vel_mask = aper_rect.to_mask(method = method).to_image(shape = (stellar_vel.shape))
+    #on_sky_xy_mask = aper_rect.to_mask(method = method).to_image(shape = (on_sky_xy.shape))
+    apers_circ = []
+    #print(np.array(stellar_vel_rect_corr).shape)
+    for i in range(len(stellar_vel_rect_corr)):
+        for j in range(len(stellar_vel_rect_corr[i])):
+            if stellar_vel_rect_corr[i][j] != 0.0 and on_sky_xy_rect_corr[i][j] != 0.0: #0.0 can be either because of outside rect apers or because no data.
+                vel.append(np.abs(stellar_vel_rect_corr[i][j]))
+                arcsec.append(on_sky_xy_rect_corr[i][j])
 
 
     # Fit profile with basic 2 param arctan function
