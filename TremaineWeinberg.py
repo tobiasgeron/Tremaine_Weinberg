@@ -90,7 +90,7 @@ class TW:
     '''
     TODO: 
     '''
-    def __init__(self,PA,inc,barlen,PA_bar,maps, forbidden_labels, snr_min, PA_err,inc_err,barlen_err,PA_bar_err,func_adjust_flux,slit_width, cosmo, redshift):
+    def __init__(self,PA,inc,barlen,PA_bar,maps, forbidden_labels, snr_min, PA_err,inc_err,barlen_err,PA_bar_err,slit_width, cosmo, redshift):
         '''
         PA: position angle of galaxy, in degrees.
         inc: inclination of galaxy, in degrees
@@ -121,9 +121,9 @@ class TW:
         self.snr_min = snr_min
         bintype = maps.bintype.name
         if bintype == 'SPX':
-            self.stellar_flux = func_adjust_flux(np.flip(maps['spx_mflux'],0))
+            self.stellar_flux = np.flip(maps['spx_mflux'],0)
         elif bintype in ['HYB10','VOR10','BIN']:
-            self.stellar_flux = func_adjust_flux(np.flip(maps['bin_mflux'],0))
+            self.stellar_flux = np.flip(maps['bin_mflux'],0)
         self.stellar_vel = np.flip(maps['stellar_vel'],0)
         self.on_sky_x = np.flip(maps['spx_ellcoo_on_sky_x'],0) #arcsec #should be spx_skycoo?
         self.on_sky_y = np.flip(maps['spx_ellcoo_on_sky_y'],0) #arcsec
@@ -580,15 +580,15 @@ class TW:
 ##----------##
 
 def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, 
-                        slit_separation = 0, slit_width = 1, method = 'center', 
-                        forbidden_labels = ['DONOTUSE','UNRELIABLE','NOCOV'], snr_min = 0,
-                        PA_err = 0, inc_err = 0, barlen_err = 0, PA_bar_err = 0, 
-                        n_MC = 0, corot_method = 'geron',
-                        Vc = 0, correct_velcurve = True, deproject_bar = True,
-                        h_method = 'individual',
-                        cosmo = [], redshift = np.nan,
-                        aper_rect_width = 5, correct_xy = True, func_adjust_flux = lambda x:x,
-                        print_times = False):
+                    slit_separation = 0, slit_width = 1, method = 'center', 
+                    forbidden_labels = ['DONOTUSE','UNRELIABLE','NOCOV'], snr_min = 0,
+                    PA_err = 0, inc_err = 0, barlen_err = 0, PA_bar_err = 0, 
+                    n_MC = 0, corot_method = 'geron',
+                    Vc = 0, correct_velcurve = True, deproject_bar = True,
+                    h_method = 'individual',
+                    cosmo = [], redshift = np.nan,
+                    aper_rect_width = 5, correct_xy = True,
+                    print_times = False):
     '''
     Main function that user will call. Will return the TW class. 
 
@@ -600,6 +600,7 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps,
     maps: a MaNGA maps object. If you have a MaNGA cube, can get the maps object by doing: my_cube.getMaps(bintype='VOR10').
 
 
+
     Optional inputs:
     slit_separation in arcsec
     slit_width in arcsec
@@ -609,9 +610,6 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps,
     if corot_method == 'Vc_userinput', then you also need to provide Vc value.
     The PAs are defined as counterclockwise from 3 o'clock. 
 
-    func_adjust_flux is for testing purposes, will be applied to stellar flux map. Remove this in final version. Can only include
-    operations like: +, -, *, /, or **.
-
     print_times is for debugging/speeding up the code
 
     Currently, if MC = 0, it will run once with best-guess inputs. If MC > 0, it will run the MC, Omega, Rcr and R are the
@@ -620,7 +618,7 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps,
 
 
     #Part 0: initialise class and other stuff
-    tw = TW(PA, inc, barlen, PA_bar, maps, forbidden_labels, snr_min, PA_err, inc_err, barlen_err, PA_bar_err, func_adjust_flux, slit_width,cosmo, redshift) 
+    tw = TW(PA, inc, barlen, PA_bar, maps, forbidden_labels, snr_min, PA_err, inc_err, barlen_err, PA_bar_err, slit_width,cosmo, redshift) 
     pixscale = get_pixscale(tw)
     centre = get_centre(tw.stellar_flux)
 
