@@ -585,7 +585,7 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps,
                         PA_err = 0, inc_err = 0, barlen_err = 0, PA_bar_err = 0, 
                         n_MC = 0, corot_method = 'geron',
                         Vc = 0, correct_velcurve = True, deproject_bar = True,
-                        h_method = 'individual', garma_oehmichen_correction = False,
+                        h_method = 'individual',
                         cosmo = [], redshift = np.nan,
                         aper_rect_width = 5, correct_xy = True, func_adjust_flux = lambda x:x,
                         print_times = False):
@@ -679,7 +679,7 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps,
 
         # Part 2: Get other slits
         slits = get_pseudo_slits(tw.stellar_flux, (m_LON, b_LON), PA_temp, PA_bar_temp, barlen_temp, centre,
-            pixscale = pixscale, sep = slit_separation, width_slit = slit_width, garma_oehmichen_correction = garma_oehmichen_correction)
+            pixscale = pixscale, sep = slit_separation, width_slit = slit_width)
 
         if print_times:
             print(f'Part II: {np.round(time.time() - prev,4)} seconds elapsed.')
@@ -935,7 +935,7 @@ def get_slit_separation_correction(PA):
     return np.nan
     
 
-def get_pseudo_slits(mapp,LON,PA, PA_bar, barlength, centre, sep = 1, width_slit = 0, pixscale = 0.5, garma_oehmichen_correction = True):
+def get_pseudo_slits(mapp,LON,PA, PA_bar, barlength, centre, sep = 1, width_slit = 0, pixscale = 0.5):
     '''
     This will return a list of all m,b of all pseudo_slits.
     pixscale should be in arcsec/pix. barlength, sep and width_slit should be in arcsec
@@ -945,8 +945,7 @@ def get_pseudo_slits(mapp,LON,PA, PA_bar, barlength, centre, sep = 1, width_slit
     
     sep = ( sep + width_slit ) / pixscale #pixels 
     barlength = barlength / pixscale #bar length in pixels
-    if garma_oehmichen_correction:
-        sep = sep * get_slit_separation_correction(PA)
+    sep = sep# * get_slit_separation_correction(PA) #add this as a keyword later?
 
 
     
