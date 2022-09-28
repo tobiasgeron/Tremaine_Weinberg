@@ -579,16 +579,11 @@ class TW:
 ## Main def ##
 ##----------##
 
-def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, 
-                    slit_separation = 0, slit_width = 1, method = 'center', 
-                    forbidden_labels = ['DONOTUSE','UNRELIABLE','NOCOV'], snr_min = 0,
-                    PA_err = 0, inc_err = 0, barlen_err = 0, PA_bar_err = 0, 
-                    n_MC = 0, corot_method = 'geron',
-                    Vc = 0, correct_velcurve = True, deproject_bar = True,
-                    h_method = 'individual',
-                    cosmo = [], redshift = np.nan,
-                    aper_rect_width = 5, correct_xy = True,
-                    print_times = False):
+def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, slit_separation = 0, slit_width = 1, method = 'center', 
+                    forbidden_labels = ['DONOTUSE','UNRELIABLE','NOCOV'], snr_min = 0, PA_err = 0, inc_err = 0, barlen_err = 0, PA_bar_err = 0, 
+                    n_MC = 0, Vc = 0, correct_velcurve = True, deproject_bar = True, h_method = 'individual',
+                    cosmo = [], redshift = np.nan, aper_rect_width = 5, correct_xy = True, print_times = False):
+    
     '''
     Main function that user will call. Will return the TW class. 
 
@@ -607,7 +602,6 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps,
     method is the integration method used with the apertures. Can be either 'center' or 'exact'
     PA_err is the error (stdev) in the galaxy PA. Used to determine the error on Omega_bar. 
     n_MC is the amount of Monte Carlo loops used to determine the error on Omega_bar. Suggested to be 1000.
-    if corot_method == 'Vc_userinput', then you also need to provide Vc value.
     The PAs are defined as counterclockwise from 3 o'clock. 
 
     print_times is for debugging/speeding up the code
@@ -721,7 +715,7 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps,
         prev = time.time()
 
         # Step 6: Find V curve and corotation radius
-        R_corot, vel, arcsec, V_curve_apers, V_curve_fit_params = determine_corotation_radius(Omega, tw.stellar_vel, tw.on_sky_xy, centre, PA_temp, inc_temp, maps, method, forbidden_labels = tw.forbidden_labels, corot_method = corot_method, Vc_input = Vc, correct_velcurve = correct_velcurve, aper_rect_width = aper_rect_width, correct_xy = correct_xy)
+        R_corot, vel, arcsec, V_curve_apers, V_curve_fit_params = determine_corotation_radius(Omega, tw.stellar_vel, tw.on_sky_xy, centre, PA_temp, inc_temp, maps, method, forbidden_labels = tw.forbidden_labels, Vc_input = Vc, correct_velcurve = correct_velcurve, aper_rect_width = aper_rect_width, correct_xy = correct_xy)
         delta_PA = np.abs(PA_temp - PA_bar_temp)
         if deproject_bar:
             bar_rad_deproj = barlen_temp/2 * np.sqrt(np.cos(delta_PA/180*np.pi)**2 + np.sin(delta_PA/180*np.pi)**2 / np.cos(inc_temp/180*np.pi)**2) #https://ui.adsabs.harvard.edu/abs/2007MNRAS.381..943G/abstract
@@ -752,14 +746,12 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps,
         Omega_err_ll = Omega - np.nanpercentile(tw.Omega_lst,16)
 
         #Error on R_corot
-        if corot_method != 'geron': #Then error on R_corot depends on determination of Vc and the error there
-            Vc_err = np.sqrt(np.diag(V_curve_fit_params[1]))[1]
-            R_corot_err_ll = np.abs(R_corot) * np.sqrt((Omega_err_ll/Omega)**2 + (Vc_err/V_curve_fit_params[0][1])**2)
-            R_corot_err_ul = np.abs(R_corot) * np.sqrt((Omega_err_ul/Omega)**2 + (Vc_err/V_curve_fit_params[0][1])**2)
+        #Vc_err = np.sqrt(np.diag(V_curve_fit_params[1]))[1]
+        #R_corot_err_ll = np.abs(R_corot) * np.sqrt((Omega_err_ll/Omega)**2 + (Vc_err/V_curve_fit_params[0][1])**2)
+        #R_corot_err_ul = np.abs(R_corot) * np.sqrt((Omega_err_ul/Omega)**2 + (Vc_err/V_curve_fit_params[0][1])**2)
 
-        if corot_method == 'geron': #Get R_corot error from MC
-            R_corot_err_ul = np.nanpercentile(tw.R_corot_lst,84)-R_corot
-            R_corot_err_ll = R_corot - np.nanpercentile(tw.R_corot_lst,16)
+        R_corot_err_ul = np.nanpercentile(tw.R_corot_lst,84)-R_corot
+        R_corot_err_ll = R_corot - np.nanpercentile(tw.R_corot_lst,16)
 
         #Error on curly R
         #barlen_err = 0 #TODO later
@@ -1249,13 +1241,10 @@ def velFunc(xdata, Vflat,rt):
     return Vsys + 2/np.pi * Vflat * np.arctan((xdata-r0)/rt)
 
 
-def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, maps, method, forbidden_labels = ['DONOTUSE'], corot_method = 'geron', Vc_input = 0, correct_velcurve = True, aper_rect_width = 10, correct_xy = True):
+def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, maps, method, forbidden_labels = ['DONOTUSE'], Vc_input = 0, correct_velcurve = True, aper_rect_width = 10, correct_xy = True):
     '''
     TODO: change the method names etc
 
-    Corot_method determiens how the corotation radius is calculated. Either:
-    -fit two parameter arctan function, take Vflat, use that. 
-    -create velocity profile from stellar velocity map, see where it intersects. 
     '''
         
     # Find the rectangular aperature
@@ -1313,44 +1302,36 @@ def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, 
         popt, pcov = curve_fit(velFunc, arcsec, vel, bounds = (0, np.inf))
         MSE = np.sum( (vel - velFunc(arcsec,popt[0],popt[1]))**2)
 
-        if corot_method == 'geron':
 
-            # Get Omega intersection, which is intersection of velocity curve with Omega * r
-            idx = 0
-            buffer = 1.2
-            while idx == 0:
+        # Get Omega intersection, which is intersection of velocity curve with Omega * r
+        idx = 0
+        buffer = 1.2
+        while idx == 0:
 
-                '''
-                need to add case if the Vs_corot curve is just higher than the velocity curve. Found couple galaxies
-                where this is the case, e.g.
-                '''
+            '''
+            need to add case if the Vs_corot curve is just higher than the velocity curve. Found couple galaxies
+            where this is the case, e.g.
+            '''
 
-                arcsec_max = np.max(vel) / np.abs(Omega) * buffer #this is the maximum radius. Do times buffer to increase range
-                arcsec_fit = np.linspace(0, arcsec_max, 1000)
+            arcsec_max = np.max(vel) / np.abs(Omega) * buffer #this is the maximum radius. Do times buffer to increase range
+            arcsec_fit = np.linspace(0, arcsec_max, 1000)
 
-                Vs_corot = np.abs(Omega) * np.array(arcsec_fit)
-                vels_fit = velFunc(arcsec_fit,popt[0],popt[1])
-                
+            Vs_corot = np.abs(Omega) * np.array(arcsec_fit)
+            vels_fit = velFunc(arcsec_fit,popt[0],popt[1])
+            
 
-                idxs = np.argwhere(np.diff(np.sign(vels_fit - Vs_corot))).flatten()
+            idxs = np.argwhere(np.diff(np.sign(vels_fit - Vs_corot))).flatten()
 
-                if len(idxs) > 1: #if there is more than one solution, we have found it. The first solution is always at r=0
-                    idx = idxs[1] #take the second one
-                    R_corot = arcsec_fit[idx]
-                else:
-                    buffer = buffer * 1.2
+            if len(idxs) > 1: #if there is more than one solution, we have found it. The first solution is always at r=0
+                idx = idxs[1] #take the second one
+                R_corot = arcsec_fit[idx]
+            else:
+                buffer = buffer * 1.2
 
-                if arcsec_max > 3600: #if larger than an deg, it is not meaningful. Probably something else went wrong.
-                    R_corot = np.nan
-                    break
+            if arcsec_max > 3600: #if larger than an deg, it is not meaningful. Probably something else went wrong.
+                R_corot = np.nan
+                break
 
-
-        if corot_method == 'Vc':
-            R_corot =  np.abs(popt[0] / Omega)
-
-        if corot_method == 'Vc_userinput':
-            popt[0] = Vc_input
-            R_corot =  np.abs(popt[0] / Omega)
 
     else:
         R_corot, popt, pcov, MSE = np.nan, np.array([np.nan, np.nan]), np.array([[np.nan, np.nan],[np.nan, np.nan]]), np.nan 
