@@ -13,6 +13,7 @@ TODO:
 Major:
 -Change PA to be East or North!!!
 -Remove need of mangaplots function. Maybe simplify and add here?
+-Change slit_length and min_slit_length to arcsec, instead of pixels. Simply use pixscale, look at slit_width!
 
 Minor:
 - Lmax also limited by low SNR and other spaxels that aren't symmetric though? -> No cause often middle of 
@@ -582,7 +583,8 @@ class TW:
 def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, slit_separation = 0, slit_width = 1, method = 'center', 
                     forbidden_labels = ['DONOTUSE','UNRELIABLE','NOCOV'], snr_min = 0, PA_err = 0, inc_err = 0, barlen_err = 0, PA_bar_err = 0, 
                     n_MC = 0, Vc = 0, correct_velcurve = True, deproject_bar = True, h_method = 'individual',
-                    cosmo = [], redshift = np.nan, aper_rect_width = 5, correct_xy = True, print_times = False):
+                    cosmo = [], redshift = np.nan, aper_rect_width = 5, correct_xy = True, print_times = False, slit_length = np.inf,
+                    min_slit_length = 25):
     
     '''
     Main function that user will call. Will return the TW class. 
@@ -603,6 +605,7 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, slit_separation = 0, slit_w
     PA_err is the error (stdev) in the galaxy PA. Used to determine the error on Omega_bar. 
     n_MC is the amount of Monte Carlo loops used to determine the error on Omega_bar. Suggested to be 1000.
     The PAs are defined as counterclockwise from 3 o'clock. 
+    slit_length (float): maximum value of slit length, in pixels
 
     print_times is for debugging/speeding up the code
 
@@ -688,9 +691,9 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, slit_separation = 0, slit_w
 
 
         for i, s in enumerate(slits):
-            aper = get_aper(points[i], slit_width/pixscale, (PA_temp-90)/180*np.pi, tw.stellar_vel, h_method = h_method, hex_map = hex_map)
+            aper = get_aper(points[i], slit_width/pixscale, (PA_temp-90)/180*np.pi, tw.stellar_vel, h_method = h_method, hex_map = hex_map, slit_length = slit_length)
             
-            if aper.h > tw.stellar_vel.shape[0]/3: #ensure that it is not too short
+            if aper.h > min_slit_length: #ensure that it is not too short
                 apers.append(aper)
 
         if print_times:
@@ -1048,7 +1051,7 @@ def create_hexagon_map(mapp,forbidden_labels):
     return newmap
 
 
-def get_aper(slit_centre, slit_width, slit_theta, stellar_vel, h_method = 'individual', hex_map = []):
+def get_aper(slit_centre, slit_width, slit_theta, stellar_vel, h_method = 'individual', hex_map = [], slit_length = np.inf):
     '''
     Will convert slit into an actual aperture.
 
@@ -1058,6 +1061,8 @@ def get_aper(slit_centre, slit_width, slit_theta, stellar_vel, h_method = 'indiv
     This is more accurate, but also slower.
 
     Units should be in pixels. 
+
+    slit_length (float): maximum value of slit length, in pixels
     '''
 
     if h_method == 'individual':
@@ -1074,7 +1079,7 @@ def get_aper(slit_centre, slit_width, slit_theta, stellar_vel, h_method = 'indiv
         for h_stepsize in h_stepsizes:
 
             reached_hex = 0.0 
-            while reached_hex == 0.0:
+            while reached_hex == 0.0 and h <= slit_length:
                 h+=h_stepsize
                 aper = RectangularAperture(slit_centre, w = slit_width, h = h, theta = slit_theta)
                 reached_hex = float(aperture_photometry(hex_map, aper, method = 'center')['aperture_sum'])
@@ -1084,7 +1089,11 @@ def get_aper(slit_centre, slit_width, slit_theta, stellar_vel, h_method = 'indiv
         aper = RectangularAperture(slit_centre, w = slit_width, h = h, theta = slit_theta)    
     
     if h_method == 'max':
-        aper = RectangularAperture(slit_centre, w = slit_width, h = stellar_vel.shape[0]*np.sqrt(2), theta = slit_theta)
+        if ~np.isinf(slit_length):
+            h = slit_length
+        else:
+            h = stellar_vel.shape[0]*np.sqrt(2)
+        aper = RectangularAperture(slit_centre, w = slit_width, h = h, theta = slit_theta)
     
     return aper
 
