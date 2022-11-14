@@ -601,7 +601,7 @@ class TW:
 
 def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, slit_separation = 0, slit_width = 1, method = 'center', 
                     forbidden_labels = ['DONOTUSE','UNRELIABLE','NOCOV'], snr_min = 0, PA_err = 0, inc_err = 0, barlen_err = 0, PA_bar_err = 0, 
-                    n_MC = 0, Vc = 0, correct_velcurve = True, deproject_bar = True, h_method = 'individual',
+                    n_MC = 0, Vc = 0, correct_velcurve = True, deproject_bar = True, slit_length_method = 'default',
                     cosmo = [], redshift = np.nan, aper_rect_width = 5, correct_xy = True, slit_length = np.inf,
                     min_slit_length = 25):
     
@@ -691,7 +691,7 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, slit_separation = 0, slit_w
 
         # Part 3: Convert slits to actual apertures
         points = get_slit_centres(tw.stellar_flux,slits,centre)
-        if h_method == 'individual':
+        if slit_length_method == 'default':
             hex_map = create_hexagon_map(tw.stellar_vel,forbidden_labels)
         else:
             hex_map = []
@@ -699,7 +699,7 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, slit_separation = 0, slit_w
 
 
         for i, s in enumerate(slits):
-            aper = get_aper(points[i], slit_width/pixscale, (PA_temp-90)/180*np.pi, tw.stellar_vel, h_method = h_method, hex_map = hex_map, slit_length = slit_length)
+            aper = get_aper(points[i], slit_width/pixscale, (PA_temp-90)/180*np.pi, tw.stellar_vel, slit_length_method = slit_length_method, hex_map = hex_map, slit_length = slit_length)
             
             if aper.h > min_slit_length: #ensure that it is not too short
                 apers.append(aper)
@@ -1039,12 +1039,12 @@ def create_hexagon_map(mapp,forbidden_labels):
     return newmap
 
 
-def get_aper(slit_centre, slit_width, slit_theta, stellar_vel, h_method = 'individual', hex_map = [], slit_length = np.inf):
+def get_aper(slit_centre, slit_width, slit_theta, stellar_vel, slit_length_method = 'default', hex_map = [], slit_length = np.inf):
     '''
     Will convert slit into an actual aperture.
 
-    h_method can be in ['individual', 'max']. With max, it'll just take h = sqrt(2)*map.shape[0].
-    With individual, it'll create a length for every slit while taking the edges of the hexagon into account.
+    slit_length_method can be in ['default', 'user_defined']. With user_defined, it'll just take whatever value is in slit_length.
+    With default, it'll create a length for every slit while taking the edges of the hexagon into account.
     Will keep on increasing height of the aperture until it hits the end. That's Lmax for this slit.
     This is more accurate, but also slower.
 
@@ -1053,7 +1053,9 @@ def get_aper(slit_centre, slit_width, slit_theta, stellar_vel, h_method = 'indiv
     slit_length (float): maximum value of slit length, in pixels
     '''
 
-    if h_method == 'individual':
+    assert slit_length_method in ['default','user_defined'], "slit_length_method must be either 'default' or 'user_defined'."
+
+    if slit_length_method == 'default':
 
         #algorithm will take big steps steps first, until it overshoots. Then reduce stepsize to finetune
         #this is done for speeding up the code. 
@@ -1076,11 +1078,9 @@ def get_aper(slit_centre, slit_width, slit_theta, stellar_vel, h_method = 'indiv
 
         aper = RectangularAperture(slit_centre, w = slit_width, h = h, theta = slit_theta)    
     
-    if h_method == 'max':
-        if ~np.isinf(slit_length):
-            h = slit_length
-        else:
-            h = stellar_vel.shape[0]*np.sqrt(2)
+    if slit_length_method == 'user_defined':
+        assert ~np.isinf(slit_length), 'Please define slit_length to use this setting.'
+        h = slit_length
         aper = RectangularAperture(slit_centre, w = slit_width, h = h, theta = slit_theta)
     
     return aper
@@ -1153,7 +1153,6 @@ def determine_pattern_speed(stellar_flux, X_Sigma, V_Sigma, apers, inc, method, 
         Omega = z[0][0]/np.sin(inc/180*np.pi)
     else:
         z = (np.array([np.nan, np.nan]), np.array([]), np.nan, np.array([]), np.array([])) #so it has same shape as a normal z
-        print(Xs)
         if len(Xs) == 1:
             Omega = Vs[0]/Xs[0]/np.sin(inc/180*np.pi)
         else:
@@ -1267,8 +1266,6 @@ def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, 
                 corr_factor_xy = np.sqrt(np.cos(phi)**2 + np.sin(phi)**2 / np.cos(inc/180*np.pi)**2) #https://arxiv.org/pdf/1406.7463.pdf and https://academic.oup.com/mnras/article/381/3/943/1062417 and https://ui.adsabs.harvard.edu/abs/2007MNRAS.381..943G/abstract
                 if not correct_xy:
                     corr_factor_xy = 1
-
-                #print(f'Corr factors: {corr_factor_xy}, {corr_factor_vel}')
                 if corr_factor_vel < 3 and corr_factor_xy < 3: #if correction factor is too high, it'll blow up the results (probably inaccurately)
                     vel = stellar_vel_rect[i][j] * corr_factor_vel
                     stellar_vel_rect_corr[i][j] = vel
@@ -1287,7 +1284,6 @@ def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, 
     #stellar_vel_mask = aper_rect.to_mask(method = method).to_image(shape = (stellar_vel.shape))
     #on_sky_xy_mask = aper_rect.to_mask(method = method).to_image(shape = (on_sky_xy.shape))
     apers_circ = []
-    #print(np.array(stellar_vel_rect_corr).shape)
     for i in range(len(stellar_vel_rect_corr)):
         for j in range(len(stellar_vel_rect_corr[i])):
             if stellar_vel_rect_corr[i][j] != 0.0 and on_sky_xy_rect_corr[i][j] != 0.0: #0.0 can be either because of outside rect apers or because no data.
