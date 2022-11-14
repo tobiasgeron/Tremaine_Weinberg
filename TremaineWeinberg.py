@@ -12,35 +12,9 @@ Géron et al. (2022): in prep.
 TODO: 
 Major:
 -Change PA to be East or North!!!
--Remove need of mangaplots function. Maybe simplify and add here?
 -Change slit_length and min_slit_length to arcsec, instead of pixels. Simply use pixscale, look at slit_width!
 
 Minor:
-- Lmax also limited by low SNR and other spaxels that aren't symmetric though? -> No cause often middle of 
-stellar_vel map has low SNR so slits would have very low/nonexistent length?
--fix slit width and slit separation? Now they are confusing.
-- if plot_maps(plot_apers = True and plot_slits = True), the slits don't go through middle of apers
-- Should lower limits have - in their values or no? Check in both normal units and physical units! Think you should just be able to do Omega + ll and that it goes to the right lower limit. So yeah, make the ll negative.
-- Take absolute value of Omega and check MC does it correctly.
-- In step V, I'm ignoring low SNR and forbidden labels now. It goes roughly double as fast now. But is it okay to do so?
-I'm quite sure the SNR makes sense, but not about the forbidden labels...
-- Add the other params. Maybe add extra item in V_params to indicate the 
-- fix error propogation. Some old stuff in there. 
--We are making nMC velcurves right? Do I need to save all of them too? Together with all the Vcs? Which one is being saved now?
-- I think that currently, the last iteration is the one that gets saved in X_V plot and velcurve plot etc, not the one with the 
-most likely estimates. FIX THIS!
--IMPORTANT: currently, if we nMC = 0, some Rcorot will be np.nan. Okay. But, if we do nMC = 1000, suddenly it gets a value.
-This is because maybe 2/1000 Omegas is actually successful. How do we deal with this? Put a limit on the fraction on MC rounds that
-shoud be successful? Or, if best-fit params fail, should it always fail? Difficult....
--Should I save all apers and slits as well of the MC? Think so. 
--To calculate Rcr, do method of Garma-Oehmichen instead of ours.
-That method, by definition, only intersects once. 
-- Problem with MC: how to determine final MC values? Depends on amount of slits etc.
-We want to have system where we can just run MC, and determine limits later.
-So make separate function? First, run the MC, save it, then run the limits to determine final 
-values. 
--Do something similar for the _phys values. Only need to run it if we actually want it.
-This will save some time!
 '''
 
 
@@ -67,10 +41,6 @@ import pickle
 import csv
 
 import sys
-#sys.path.append('/Users/geron/Documents/Projects/functions')
-#from mangaplots import mangacolorplot
-#from get_decals_images import make_png_from_fits, dr2_style_rgb, nonlinear_map, save_carefully_resized_png, plot_decals_image, create_image_directory #no longer needed, for when plotting from DECaLS
-
 
 
 ############
@@ -630,8 +600,8 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
     velcurve_aper_width (int): How many pixels to use to determine the velocity curve.
 
     
-    Currently, if n_iter = 0, it will run once with best-guess inputs. If n_iter > 0, it will run the MC, Omega, Rcr and R are the
-    median of the MC. After MC, it will run one last time with the best-guess inputs for all the figures etc. 
+    Currently, if n_iter = 0, it will run once with best-guess inputs. If n_iter > 0, it will run the iterations, Omega, Rcr and R are the
+    median of all the iterations. After the iterations, it will run one last time with the best-guess inputs for all the figures etc. 
     '''
 
 
@@ -641,17 +611,12 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
     centre = get_centre(tw.stellar_flux)
 
     # TODO in case n_iter == 0
-    # Part 1 - 5 are in this MC loop
-    if n_iter == 0:
-        '''
-        if parameters for MC are not specified, run through the loop once with the provided PA value.
-        '''
+    # Part 1 - 5 are in this loop
+    if n_iter == 0: # If n_iter == 0, do everything once and don't sample
         PA_err = 0
         inc_err = 0
         PA_bar_err = 0
         barlen_err = 0
-
-    #n_iter += 1 #always add one, last one will be with normal PA, and will be used for the figures, but not saved in the MC loops
     
     for n in range(n_iter+1):
         if n == n_iter: #means we're over the MC. Doing one more round with the best-fit values for the figures.
@@ -734,7 +699,6 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
     R = np.nanmedian(tw.R_lst)
 
     # Step 7: Error propogation: put in separate function later
-    #https://en.wikipedia.org/wiki/Propagation_of_uncertainty
     if n_iter == 0: 
         Omega_err_ll, Omega_err_ul = np.nan, np.nan
         R_corot_err_ll, R_corot_err_ul = np.nan, np.nan
@@ -745,17 +709,10 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
         Omega_err_ll = Omega - np.nanpercentile(tw.Omega_lst,16)
 
         #Error on R_corot
-        #Vc_err = np.sqrt(np.diag(V_curve_fit_params[1]))[1]
-        #R_corot_err_ll = np.abs(R_corot) * np.sqrt((Omega_err_ll/Omega)**2 + (Vc_err/V_curve_fit_params[0][1])**2)
-        #R_corot_err_ul = np.abs(R_corot) * np.sqrt((Omega_err_ul/Omega)**2 + (Vc_err/V_curve_fit_params[0][1])**2)
-
         R_corot_err_ul = np.nanpercentile(tw.R_corot_lst,84)-R_corot
         R_corot_err_ll = R_corot - np.nanpercentile(tw.R_corot_lst,16)
 
         #Error on curly R
-        #barlen_err = 0 #TODO later
-        #R_err_ul = np.abs(R) * np.sqrt( (barlen_err/barlen)**2 + (R_corot_err_ul/R_corot)**2)
-        #R_err_ll = np.abs(R) * np.sqrt( (barlen_err/barlen)**2 + (R_corot_err_ll/R_corot)**2)
         R_err_ul = np.nanpercentile(tw.R_lst,84)-R
         R_err_ll = R - np.nanpercentile(tw.R_lst,16)
 
@@ -902,7 +859,6 @@ def get_slit_separation_correction(PA):
         PA -= 180
     while PA < -90:
         PA += 90
-        
         
     if PA == 90 or PA == -90:
         return 1
