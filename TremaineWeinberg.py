@@ -58,10 +58,10 @@ from photutils.aperture import aperture_photometry
 from photutils.isophote import Ellipse
 from photutils.isophote import build_ellipse_model
 from marvin.tools.image import Image
+import marvin.utils.plot.map as mapplot
 from scipy.ndimage import gaussian_filter
 import math
 from scipy.optimize import curve_fit
-import marvin.utils.plot.map as mapplot
 import time
 import pickle
 import csv
@@ -274,44 +274,60 @@ class TW:
         if standalone:
             plt.show()
 
-    def plot_hist_MC(self, variable, standalone = True, n_bins = 15):
+    def plot_hist_MC(self, variables = ['Omega'], standalone = True, n_bins = 15):
         '''
         This plots the final posterior distribution from the MC for either Omega, R_corot or R.
+
+
+        TODO: Allow user to pass list, similarly to plot_maps.
         '''
-        assert variable in ['Omega','Omega_phys','R_corot','R_corot_phys','R','R_phys'],"variable can either be Omega, Omega_phys, R_corot, R_corot_phys or R."
-        
-        #Set titles
-        if 'Omega' in variable:
-            title = r"$\Omega_{bar}$ [km s-1 arcsec-1]"
-        elif 'R_corot' in variable:
-            title = r'R$_{\rm CR}$ [arcsec]'
-        elif 'R' in variable:
-            title = r'$\mathcal{R}$ [-]'
-        
-        if '_phys' in variable:
-            title = title.replace('arcsec','kpc')
-        
-        if variable == 'R_phys':
-            variable = 'R'
+        n_plots = len(variables)
+        for i in variables:
+            assert i in ['Omega','Omega_phys','R_corot','R_corot_phys','R'], "'Omega','Omega_phys','R_corot','R_corot_phys','R'"
 
 
-        var = getattr(self,variable)
-        var_err = getattr(self,variable+'_err')
-        var_lst = getattr(self,variable+'_lst')
-        UL = var + var_err[1]
-        LL = var - var_err[0]
-        
+        if standalone == False:
+            assert len(maps) == 1, "standalone = False is only an option when only asking for one map to be drawn."
+        if len(maps) != 1:
+            standalone = True #Standalone = False is only an option when only asking for one map to be drawn.
+
+
         if standalone:
-            plt.figure(figsize = (5,5))
-        
-        plt.hist(var_lst,bins=n_bins)
-        plt.axvline(var, c='black')
-        plt.axvline(LL,c='black', ls='--')
-        plt.axvline(UL, c='black', ls='--')
-        plt.xlabel(title)
+            plt.figure(figsize = (5*n_plots,4))
 
-        string = str(np.round(var,2))+ "$^{+" + str(np.round(var_err[1],2)) + "}_{-" + str(np.round(var_err[0],2)) + "}$"
-        plt.text(0.95,0.8,string, fontsize=16, transform=plt.gca().transAxes, horizontalalignment='right')
+        for i,variable in enumerate(variables):
+
+            #Set titles
+            if 'Omega' in variable:
+                title = r"$\Omega_{bar}$ [km s-1 arcsec-1]"
+            elif 'R_corot' in variable:
+                title = r'R$_{\rm CR}$ [arcsec]'
+            elif 'R' in variable:
+                title = r'$\mathcal{R}$ [-]'
+            
+            if '_phys' in variable:
+                title = title.replace('arcsec','kpc')
+            
+            if variable == 'R_phys':
+                variable = 'R'
+
+
+            var = getattr(self,variable)
+            var_err = getattr(self,variable+'_err')
+            var_lst = getattr(self,variable+'_lst')
+            UL = var + var_err[1]
+            LL = var - var_err[0]
+            
+            
+            
+            plt.hist(var_lst,bins=n_bins)
+            plt.axvline(var, c='black')
+            plt.axvline(LL,c='black', ls='--')
+            plt.axvline(UL, c='black', ls='--')
+            plt.xlabel(title)
+
+            string = str(np.round(var,2))+ "$^{+" + str(np.round(var_err[1],2)) + "}_{-" + str(np.round(var_err[0],2)) + "}$"
+            plt.text(0.95,0.8,string, fontsize=16, transform=plt.gca().transAxes, horizontalalignment='right')
 
         if standalone:
             plt.show()
@@ -1165,6 +1181,7 @@ def determine_pattern_speed(stellar_flux, X_Sigma, V_Sigma, apers, inc, method, 
         Omega = z[0][0]/np.sin(inc/180*np.pi)
     else:
         z = (np.array([np.nan, np.nan]), np.array([]), np.nan, np.array([]), np.array([])) #so it has same shape as a normal z
+        print(Xs)
         if len(Xs) == 1:
             Omega = Vs[0]/Xs[0]/np.sin(inc/180*np.pi)
         else:
