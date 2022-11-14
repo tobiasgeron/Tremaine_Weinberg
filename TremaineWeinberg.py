@@ -601,8 +601,8 @@ class TW:
 
 def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, slit_separation = 0, slit_width = 1, method = 'center', 
                     forbidden_labels = ['DONOTUSE','UNRELIABLE','NOCOV'], snr_min = 0, PA_err = 0, inc_err = 0, barlen_err = 0, PA_bar_err = 0, 
-                    n_MC = 0, Vc = 0, correct_velcurve = True, deproject_bar = True, slit_length_method = 'default',
-                    cosmo = [], redshift = np.nan, aper_rect_width = 5, correct_xy = True, slit_length = np.inf,
+                    n_MC = 0, Vc = 0, correct_velcurve = True, deproject_bar = True,
+                    cosmo = [], redshift = np.nan, aper_rect_width = 5, slit_length_method = 'default', slit_length = np.inf,
                     min_slit_length = 25):
     
     '''
@@ -624,7 +624,9 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, slit_separation = 0, slit_w
     PA_err is the error (stdev) in the galaxy PA. Used to determine the error on Omega_bar. 
     n_MC is the amount of Monte Carlo loops used to determine the error on Omega_bar. Suggested to be 1000.
     The PAs are defined as counterclockwise from 3 o'clock. 
-    slit_length (float): maximum value of slit length, in pixels
+    slit_length_method (str): Either 'default' or 'user_defined'. Decides which method to use to determine the slit lengths.
+    slit_length (float): maximum value of slit length, in pixels. If slit_length_method == 'user_defined', this is the slit length that will be used
+
 
     Currently, if MC = 0, it will run once with best-guess inputs. If MC > 0, it will run the MC, Omega, Rcr and R are the
     median of the MC. After MC, it will run one last time with the best-guess inputs for all the figures etc. 
@@ -714,7 +716,7 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, slit_separation = 0, slit_w
         Omega = np.abs(Omega)
 
         # Step 6: Find V curve and corotation radius
-        R_corot, vel, arcsec, V_curve_apers, V_curve_fit_params = determine_corotation_radius(Omega, tw.stellar_vel, tw.on_sky_xy, centre, PA_temp, inc_temp, maps, method, forbidden_labels = tw.forbidden_labels, Vc_input = Vc, correct_velcurve = correct_velcurve, aper_rect_width = aper_rect_width, correct_xy = correct_xy)
+        R_corot, vel, arcsec, V_curve_apers, V_curve_fit_params = determine_corotation_radius(Omega, tw.stellar_vel, tw.on_sky_xy, centre, PA_temp, inc_temp, maps, method, forbidden_labels = tw.forbidden_labels, Vc_input = Vc, correct_velcurve = correct_velcurve, aper_rect_width = aper_rect_width)
         delta_PA = np.abs(PA_temp - PA_bar_temp)
         if deproject_bar:
             bar_rad_deproj = barlen_temp/2 * np.sqrt(np.cos(delta_PA/180*np.pi)**2 + np.sin(delta_PA/180*np.pi)**2 / np.cos(inc_temp/180*np.pi)**2) #https://ui.adsabs.harvard.edu/abs/2007MNRAS.381..943G/abstract
@@ -1080,8 +1082,7 @@ def get_aper(slit_centre, slit_width, slit_theta, stellar_vel, slit_length_metho
     
     if slit_length_method == 'user_defined':
         assert ~np.isinf(slit_length), 'Please define slit_length to use this setting.'
-        h = slit_length
-        aper = RectangularAperture(slit_centre, w = slit_width, h = h, theta = slit_theta)
+        aper = RectangularAperture(slit_centre, w = slit_width, h = slit_length, theta = slit_theta)
     
     return aper
 
@@ -1238,7 +1239,7 @@ def velFunc(xdata, Vflat,rt):
     return Vsys + 2/np.pi * Vflat * np.arctan((xdata-r0)/rt)
 
 
-def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, maps, method, forbidden_labels = ['DONOTUSE'], Vc_input = 0, correct_velcurve = True, aper_rect_width = 10, correct_xy = True):
+def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, maps, method, forbidden_labels = ['DONOTUSE'], Vc_input = 0, correct_velcurve = True, aper_rect_width = 10):
     '''
     TODO: change the method names etc
 
@@ -1264,8 +1265,6 @@ def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, 
                 phi = phi_map[i][j]
                 corr_factor_vel = 1/np.abs(np.sin(inc/180*np.pi) * np.cos(phi)) #https://www.aanda.org/articles/aa/pdf/2005/04/aah4175.pdf and https://articles.adsabs.harvard.edu//full/1989A%26A...223...47B/0000057.000.html
                 corr_factor_xy = np.sqrt(np.cos(phi)**2 + np.sin(phi)**2 / np.cos(inc/180*np.pi)**2) #https://arxiv.org/pdf/1406.7463.pdf and https://academic.oup.com/mnras/article/381/3/943/1062417 and https://ui.adsabs.harvard.edu/abs/2007MNRAS.381..943G/abstract
-                if not correct_xy:
-                    corr_factor_xy = 1
                 if corr_factor_vel < 3 and corr_factor_xy < 3: #if correction factor is too high, it'll blow up the results (probably inaccurately)
                     vel = stellar_vel_rect[i][j] * corr_factor_vel
                     stellar_vel_rect_corr[i][j] = vel
