@@ -91,7 +91,7 @@ class TW:
     '''
     TODO: 
     '''
-    def __init__(self,PA,inc,barlen,PA_bar,maps, forbidden_labels, snr_min, PA_err,inc_err,barlen_err,PA_bar_err,slit_width, cosmo, redshift):
+    def __init__(self,PA,inc,barlen,PA_bar,maps, forbidden_labels, PA_err,inc_err,barlen_err,PA_bar_err,slit_width, cosmo, redshift):
         '''
         PA: position angle of galaxy, in degrees.
         inc: inclination of galaxy, in degrees
@@ -119,7 +119,6 @@ class TW:
 
         # get all relevant MaNGA maps
         self.forbidden_labels = forbidden_labels
-        self.snr_min = snr_min
         bintype = maps.bintype.name
         if bintype == 'SPX':
             self.stellar_flux = np.flip(maps['spx_mflux'],0)
@@ -390,7 +389,6 @@ class TW:
 
         if standalone:
             plt.figure(figsize = (5,4))
-        #mangacolorplot(mapp,preset='velocities',colorbar=True, mask_keywords=self.forbidden_labels, snr_min = self.snr_min)
         
         fig = plt.gcf()
         ax = plt.gca()
@@ -466,12 +464,6 @@ class TW:
             if standalone:
                 plt.subplot(1,n_plots,i+1)
             
-            #if maps[i] in ['stellar_vel','stellar_flux']:
-            #    mangacolorplot(mapp,preset=preset,colorbar=plot_colorbar, mask_keywords = self.forbidden_labels, snr_min = self.snr_min)
-            #else:
-            #    plt.pcolormesh(mapp)
-            #    plt.colorbar()
-
             if cbar_labels == '': #if no predefined colorbar label, will put unit there
                 cb_label = unit 
             else:
@@ -599,10 +591,11 @@ class TW:
 ## Main def ##
 ##----------##
 
-def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, slit_separation = 0, slit_width = 1, method = 'center', 
-                    forbidden_labels = ['DONOTUSE','UNRELIABLE','NOCOV'], snr_min = 0, PA_err = 0, inc_err = 0, barlen_err = 0, PA_bar_err = 0, 
-                    n_MC = 0, Vc = 0, correct_velcurve = True, deproject_bar = True,
-                    cosmo = [], redshift = np.nan, aper_rect_width = 5, slit_length_method = 'default', slit_length = np.inf,
+def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0, barlen_err = 0.0, PA_bar_err = 0.0,
+                    slit_separation = 0, slit_width = 1, aperture_integration_method = 'center', 
+                    forbidden_labels = ['DONOTUSE','UNRELIABLE','NOCOV'],  
+                    n_MC = 0, deproject_bar = True,
+                    cosmo = [], redshift = np.nan, correct_velcurve = True, velcurve_aper_width = 5, slit_length_method = 'default', slit_length = np.inf,
                     min_slit_length = 25):
     
     '''
@@ -613,28 +606,33 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, slit_separation = 0, slit_w
     inc: inclination of galaxy, in degrees
     barlen: length of the entire bar of the galaxy, in arcsec (so not bar radius, but bar diameter!)
     PA_bar: position angle of the bar, in degrees
-    maps: a MaNGA maps object. If you have a MaNGA cube, can get the maps object by doing: my_cube.getMaps(bintype='VOR10').
+    maps: a MaNGA maps object. If you have a MaNGA cube, can get the maps object by doing: Maps(plateifu = plateifu, bintype='VOR10').
 
 
 
     Optional inputs:
-    slit_separation in arcsec
-    slit_width in arcsec
-    method is the integration method used with the apertures. Can be either 'center' or 'exact'
+    PA_err (float): Error on the galaxy PA, in degrees
+    inc_err (float): Error on the inclination of the galaxy, in degrees
+    barlen_err (float): Error on the length of the bar, in arcsec (error on the entire bar, not bar radius!)
+    PA_bar_err (float): Error on the PA of the bar, in degrees
+    slit_separation (float): Separation between slits, in arcsec
+    slit_width (float): width of each slit, in arcsec
+    aperture_integration_method (bool): The integration method used with the apertures. Can be either 'center' or 'exact'.
     PA_err is the error (stdev) in the galaxy PA. Used to determine the error on Omega_bar. 
     n_MC is the amount of Monte Carlo loops used to determine the error on Omega_bar. Suggested to be 1000.
     The PAs are defined as counterclockwise from 3 o'clock. 
     slit_length_method (str): Either 'default' or 'user_defined'. Decides which method to use to determine the slit lengths.
-    slit_length (float): maximum value of slit length, in pixels. If slit_length_method == 'user_defined', this is the slit length that will be used
-
-
+    slit_length (float): maximum value of slit length, in pixels. If slit_length_method == 'user_defined', this is the slit length that will be used.
+    deproject_bar (bool): Whether to deproject the bar using the PA, PA_bar and inclination of the galaxy. Strongly advised to always keep on True.
+    velcurve_aper_width (int): How many pixels to use to determine the velocity curve.
+    correct_velcurve (bool): Whether to correct the velocity and positions for the inclination and PA of the galaxy while determining the velocity curve
     Currently, if MC = 0, it will run once with best-guess inputs. If MC > 0, it will run the MC, Omega, Rcr and R are the
     median of the MC. After MC, it will run one last time with the best-guess inputs for all the figures etc. 
     '''
 
 
     #Part 0: initialise class and other stuff
-    tw = TW(PA, inc, barlen, PA_bar, maps, forbidden_labels, snr_min, PA_err, inc_err, barlen_err, PA_bar_err, slit_width,cosmo, redshift) 
+    tw = TW(PA, inc, barlen, PA_bar, maps, forbidden_labels, PA_err, inc_err, barlen_err, PA_bar_err, slit_width,cosmo, redshift) 
     pixscale = get_pixscale(tw)
     centre = get_centre(tw.stellar_flux)
 
@@ -712,11 +710,11 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, slit_separation = 0, slit_w
         V_Sigma = tw.stellar_flux * tw.stellar_vel
 
         # Step 5: Do integration and determine Omega
-        Xs, Vs, z, Omega = determine_pattern_speed(tw.stellar_flux, X_Sigma, V_Sigma, apers, inc_temp, method, forbidden_labels = tw.forbidden_labels, snr_min = tw.snr_min)
+        Xs, Vs, z, Omega = determine_pattern_speed(tw.stellar_flux, X_Sigma, V_Sigma, apers, inc_temp, aperture_integration_method, forbidden_labels = tw.forbidden_labels)
         Omega = np.abs(Omega)
 
         # Step 6: Find V curve and corotation radius
-        R_corot, vel, arcsec, V_curve_apers, V_curve_fit_params = determine_corotation_radius(Omega, tw.stellar_vel, tw.on_sky_xy, centre, PA_temp, inc_temp, maps, method, forbidden_labels = tw.forbidden_labels, Vc_input = Vc, correct_velcurve = correct_velcurve, aper_rect_width = aper_rect_width)
+        R_corot, vel, arcsec, V_curve_apers, V_curve_fit_params = determine_corotation_radius(Omega, tw.stellar_vel, tw.on_sky_xy, centre, PA_temp, inc_temp, maps, aperture_integration_method, forbidden_labels = tw.forbidden_labels, correct_velcurve = correct_velcurve, velcurve_aper_width = velcurve_aper_width)
         delta_PA = np.abs(PA_temp - PA_bar_temp)
         if deproject_bar:
             bar_rad_deproj = barlen_temp/2 * np.sqrt(np.cos(delta_PA/180*np.pi)**2 + np.sin(delta_PA/180*np.pi)**2 / np.cos(inc_temp/180*np.pi)**2) #https://ui.adsabs.harvard.edu/abs/2007MNRAS.381..943G/abstract
@@ -1123,27 +1121,20 @@ def create_X_map(mapp, LON, centre, sep):
 
 # Step 5: Do integration and determine Omega
 
-def determine_pattern_speed(stellar_flux, X_Sigma, V_Sigma, apers, inc, method, forbidden_labels = ['DONOTUSE'], snr_min = 0):
+def determine_pattern_speed(stellar_flux, X_Sigma, V_Sigma, apers, inc, aperture_integration_method, forbidden_labels = ['DONOTUSE']):
     Xs = []
     Vs = []
 
     for aper in apers:#can I ignore the snr and forbidden_labels here?
-        #phot_table_flux = aperture_photometry(stellar_flux.value, aper, method = method, mask = ( mapplot.mask_low_snr(stellar_flux.value, stellar_flux.ivar, snr_min = snr_min)))
-        phot_table_flux = aperture_photometry(stellar_flux.value, aper, method = method)
+        phot_table_flux = aperture_photometry(stellar_flux.value, aper, method = aperture_integration_method)
         flux = float(phot_table_flux['aperture_sum'])
 
         if flux == 0:
             continue #just ignore
         else: #can I ignore the snr and forbidden_labels here?
-            #phot_table_X = aperture_photometry(X_Sigma.value, aper, method = method, mask = ( (X_Sigma.pixmask.get_mask(forbidden_labels)>=1) | mapplot.mask_low_snr(X_Sigma.value, X_Sigma.ivar, snr_min = snr_min)))
-            #phot_table_X = aperture_photometry(X_Sigma.value, aper, method = method, mask = ( (X_Sigma.pixmask.get_mask(forbidden_labels)>=1)))
-            phot_table_X = aperture_photometry(X_Sigma.value, aper, method = method)
-            
-
+            phot_table_X = aperture_photometry(X_Sigma.value, aper, method = aperture_integration_method)
             Xs.append(float(phot_table_X['aperture_sum'])/flux)
-            
-            #phot_table_V = aperture_photometry(V_Sigma.value, aper, method = method, mask = ( (V_Sigma.pixmask.get_mask(forbidden_labels)>=1) | mapplot.mask_low_snr(V_Sigma.value, V_Sigma.ivar, snr_min = snr_min)))
-            phot_table_V = aperture_photometry(V_Sigma.value, aper, method = method)
+            phot_table_V = aperture_photometry(V_Sigma.value, aper, method = aperture_integration_method)
             
             Vs.append(float(phot_table_V['aperture_sum'])/flux)
 
@@ -1239,19 +1230,15 @@ def velFunc(xdata, Vflat,rt):
     return Vsys + 2/np.pi * Vflat * np.arctan((xdata-r0)/rt)
 
 
-def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, maps, method, forbidden_labels = ['DONOTUSE'], Vc_input = 0, correct_velcurve = True, aper_rect_width = 10):
-    '''
-    TODO: change the method names etc
-
-    '''
+def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, maps, aperture_integration_method, forbidden_labels = ['DONOTUSE'], correct_velcurve = True, velcurve_aper_width = 10):
         
     # Find the rectangular aperature
-    aper_rect = RectangularAperture(centre, w = aper_rect_width, h = stellar_vel.shape[0]*1.5, theta = (PA-90)/180*np.pi)
+    aper_rect = RectangularAperture(centre, w = velcurve_aper_width, h = stellar_vel.shape[0]*1.5, theta = (PA-90)/180*np.pi)
 
 
     # apply the rect aperature first
-    stellar_vel_rect = aper_rect.to_mask(method = method).to_image(shape = (stellar_vel.shape)) * stellar_vel.value * (stellar_vel.pixmask.get_mask(forbidden_labels)<1).astype(int) #last bit is to incorporate stellar_vel mask
-    on_sky_xy_rect = aper_rect.to_mask(method = method).to_image(shape = (on_sky_xy.shape)) * on_sky_xy
+    stellar_vel_rect = aper_rect.to_mask(method = aperture_integration_method).to_image(shape = (stellar_vel.shape)) * stellar_vel.value * (stellar_vel.pixmask.get_mask(forbidden_labels)<1).astype(int) #last bit is to incorporate stellar_vel mask
+    on_sky_xy_rect = aper_rect.to_mask(method = aperture_integration_method).to_image(shape = (on_sky_xy.shape)) * on_sky_xy
     
     # apply correction (from inclination and phi)
     phi_map = create_phi_map(centre, PA, on_sky_xy)
@@ -1280,8 +1267,8 @@ def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, 
     arcsec = []
     vel = []
 
-    #stellar_vel_mask = aper_rect.to_mask(method = method).to_image(shape = (stellar_vel.shape))
-    #on_sky_xy_mask = aper_rect.to_mask(method = method).to_image(shape = (on_sky_xy.shape))
+    #stellar_vel_mask = aper_rect.to_mask(method = aperture_integration_method).to_image(shape = (stellar_vel.shape))
+    #on_sky_xy_mask = aper_rect.to_mask(method = aperture_integration_method).to_image(shape = (on_sky_xy.shape))
     apers_circ = []
     for i in range(len(stellar_vel_rect_corr)):
         for j in range(len(stellar_vel_rect_corr[i])):
