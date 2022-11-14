@@ -287,8 +287,8 @@ class TW:
 
 
         if standalone == False:
-            assert len(maps) == 1, "standalone = False is only an option when only asking for one map to be drawn."
-        if len(maps) != 1:
+            assert len(variables) == 1, "standalone = False is only an option when only asking for one map to be drawn."
+        if len(variables) != 1:
             standalone = True #Standalone = False is only an option when only asking for one map to be drawn.
 
 
@@ -296,6 +296,8 @@ class TW:
             plt.figure(figsize = (5*n_plots,4))
 
         for i,variable in enumerate(variables):
+
+
 
             #Set titles
             if 'Omega' in variable:
@@ -318,7 +320,8 @@ class TW:
             UL = var + var_err[1]
             LL = var - var_err[0]
             
-            
+            if standalone:
+                plt.subplot(1,n_plots,i+1)
             
             plt.hist(var_lst,bins=n_bins)
             plt.axvline(var, c='black')
