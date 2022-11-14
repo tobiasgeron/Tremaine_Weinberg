@@ -11,7 +11,7 @@ Géron et al. (2022): in prep.
 
 TODO: 
 Major:
--Change PA to be East or North!!!
+-Change PA to be East or North!
 
 Minor:
 '''
@@ -560,11 +560,11 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
     Main function that user will call. Will return the TW class. 
 
     Inputs:
-    PA (float): Position angle of galaxy, in degrees. The PAs are defined as counterclockwise from 3 o'clock on the DECaLS pictures
+    PA (float): Position angle of galaxy, in degrees. The PAs are defined as counterclockwise from 3 o'clock on the DECaLS pictures.
     inc (float): Inclination of galaxy, in degrees.
     barlen (float): Length of the entire bar of the galaxy, in arcsec (so not bar radius, but bar diameter!).
     PA_bar (float): Position angle of the bar, in degrees.
-    maps (MaNGA Maps): A MaNGA maps object. If you have a MaNGA cube, can get the maps object by doing: Maps(plateifu = plateifu, bintype='VOR10'). See: https://sdss-marvin.readthedocs.io/en/latest/tools/maps.html
+    maps (MaNGA Maps): A MaNGA maps object. If you have a MaNGA cube, can get the maps object by doing: Maps(plateifu = plateifu, bintype='VOR10'). See: https://sdss-marvin.readthedocs.io/en/latest/tools/maps.html.
 
 
     Optional inputs:
@@ -583,12 +583,15 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
     cosmo (astropy cosmology): An astropy cosmology (e.g.: FlatLambdaCDM(H0=70 km / (Mpc s), Om0=0.3, Tcmb0=2.725 K, Neff=3.04, m_nu=[0. 0. 0.] eV, Ob0=None)). Used together with `redshift' to convert arcsec to kpc.
     redshift (float): Redshift of the target. Used together with `cosmo' to convert arcsec to kpc. 
     aperture_integration_method (bool): The integration method used with the apertures. Can be either 'center' or 'exact'.
-    forbidden_labels (list): List of possible labels in the MaNGA datacube. Will ignore spaxels that are associated with any of these labels
+    forbidden_labels (list): List of possible labels in the MaNGA datacube. Will ignore spaxels that are associated with any of these labels.
     deproject_bar (bool): Whether to deproject the bar using the PA, PA_bar and inclination of the galaxy. Strongly advised to always keep on True.
-    correct_velcurve (bool): Whether to correct the velocity and positions for the inclination and PA of the galaxy while determining the velocity curve
+    correct_velcurve (bool): Whether to correct the velocity and positions for the inclination and PA of the galaxy while determining the velocity curve.
     velcurve_aper_width (int): How many pixels to use to determine the velocity curve.
 
-    
+    Outputs:
+    Returns TW class, defined in TremaineWeinberg.py. The TW class contains everything that is calculated. See Example.ipynb to see how to access it.
+
+    Notes:
     Currently, if n_iter = 0, it will run once with best-guess inputs. If n_iter > 0, it will run the iterations, Omega, Rcr and R are the
     median of all the iterations. After the iterations, it will run one last time with the best-guess inputs for all the figures etc. 
     '''
