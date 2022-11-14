@@ -15,4 +15,6 @@ This package was developed alongside Géron et al. (2022, in prep) and is used t
 
 ### Description of code
 
+Warning: This code is still under development.
+
 TODO
