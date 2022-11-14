@@ -1,6 +1,6 @@
 # Tremaine_Weinberg
 
-### Summary
+### Summary
 
 This reposity contains everything to perform the Tremaine-Weinberg method on MaNGA galaxies in Python.
 More info on the Tremaine-Weinberg method and some papers that use it (not with this package, though): 
