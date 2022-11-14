@@ -12,7 +12,6 @@ Géron et al. (2022): in prep.
 TODO: 
 Major:
 -Change PA to be East or North!!!
--Change slit_length and min_slit_length to arcsec, instead of pixels. Simply use pixscale, look at slit_width!
 
 Minor:
 '''
@@ -553,7 +552,7 @@ class TW:
 
 def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0, barlen_err = 0.0, PA_bar_err = 0.0,
                     slit_width = 1, slit_separation = 0, slit_length_method = 'default', slit_length = np.inf,
-                    min_slit_length = 25, n_iter = 0, cosmo = [], redshift = np.nan, aperture_integration_method = 'center', 
+                    min_slit_length = 12, n_iter = 0, cosmo = [], redshift = np.nan, aperture_integration_method = 'center', 
                     forbidden_labels = ['DONOTUSE','UNRELIABLE','NOCOV'], deproject_bar = True, correct_velcurve = True, 
                     velcurve_aper_width = 5):
     
@@ -577,8 +576,8 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
     slit_width (float): Width of each slit, in arcsec.
     slit_separation (float): Separation between slits, in arcsec.
     slit_length_method (str): Either 'default' or 'user_defined'. Decides which method to use to determine the slit lengths.
-    slit_length (float): Maximum value of slit length, in pixels. If slit_length_method == 'user_defined', this is the slit length that will be used.
-    min_slit_length (float): Minimum value of slit length, in pixels. If slit is shorter than that, ignore slit.
+    slit_length (float): Maximum value of slit length, in arcsec. If slit_length_method == 'user_defined', this is the slit length that will be used.
+    min_slit_length (float): Minimum value of slit length, in arcsec. If slit is shorter than that, ignore slit.
 
     n_iter (int): Amount of iterations used to determine the posterior distributions of Omega, Rcr and R. Default is 0. Recommended value for accurate posteriors and errors is 1000.
     cosmo (astropy cosmology): An astropy cosmology (e.g.: FlatLambdaCDM(H0=70 km / (Mpc s), Om0=0.3, Tcmb0=2.725 K, Neff=3.04, m_nu=[0. 0. 0.] eV, Ob0=None)). Used together with `redshift' to convert arcsec to kpc.
@@ -600,7 +599,6 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
     pixscale = get_pixscale(tw)
     centre = get_centre(tw.stellar_flux)
 
-    # TODO in case n_iter == 0
     # Part 1 - 5 are in this loop
     if n_iter == 0: # If n_iter == 0, do everything once and don't sample
         PA_err = 0
@@ -656,9 +654,9 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
 
 
         for i, s in enumerate(slits):
-            aper = get_aper(points[i], slit_width/pixscale, (PA_temp-90)/180*np.pi, tw.stellar_vel, slit_length_method = slit_length_method, hex_map = hex_map, slit_length = slit_length)
+            aper = get_aper(points[i], slit_width/pixscale, (PA_temp-90)/180*np.pi, tw.stellar_vel, slit_length_method = slit_length_method, hex_map = hex_map, slit_length = np.round(slit_length/pixscale))
             
-            if aper.h > min_slit_length: #ensure that it is not too short
+            if aper.h > min_slit_length/pixscale: #ensure that it is not too short
                 apers.append(aper)
 
         # Part 4: Create X * Sigma and Vlos * Sigma maps
