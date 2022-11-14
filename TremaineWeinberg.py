@@ -25,22 +25,12 @@ Minor:
 
 import numpy as np
 import matplotlib.pyplot as plt
-from tqdm.notebook import tqdm
-from photutils.aperture import EllipticalAnnulus
-from photutils.aperture import RectangularAperture
-from photutils.aperture import aperture_photometry
-from photutils.isophote import Ellipse
-from photutils.isophote import build_ellipse_model
-from marvin.tools.image import Image
-import marvin.utils.plot.map as mapplot
-from scipy.ndimage import gaussian_filter
 import math
-from scipy.optimize import curve_fit
-import time
 import pickle
 import csv
-
-import sys
+import photutils
+import marvin
+import scipy
 
 
 ############
@@ -362,7 +352,7 @@ class TW:
         
         fig = plt.gcf()
         ax = plt.gca()
-        mapplot.plot(dapmap = mapp,fig=fig,ax = ax)
+        marvin.utils.plot.map.plot(dapmap = mapp,fig=fig,ax = ax)
         plt.title(title)
                 
         plt.xlim(0, mapp.shape[0])
@@ -442,7 +432,7 @@ class TW:
             if maps[i] in ['X_map']: #X_map is a special case.
                 fig = plt.gcf()
                 ax = plt.gca()
-                mapplot.plot(value = mapp,fig=fig,ax = ax, cblabel = cb_label)
+                marvin.utils.plot.map.plot(value = mapp,fig=fig,ax = ax, cblabel = cb_label)
                 plt.title(title)
                 plt.xlim(0, mapp.shape[0])
                 plt.ylim(0, mapp.shape[1])
@@ -450,7 +440,7 @@ class TW:
             else:
                 fig = plt.gcf()
                 ax = plt.gca()
-                mapplot.plot(dapmap = mapp,fig=fig,ax = ax, cblabel = cb_label)
+                marvin.utils.plot.map.plot(dapmap = mapp,fig=fig,ax = ax, cblabel = cb_label)
                 plt.title(title)
                 plt.xlim(0, mapp.shape[0])
                 plt.ylim(0, mapp.shape[1])
@@ -492,7 +482,7 @@ class TW:
         '''
 
         
-        im = Image(self.plateifu)
+        im = marvin.tools.image.Image(self.plateifu)
         im.get_new_cutout(n_pix*pixscale, n_pix*pixscale, scale=pixscale)
         ra,dec = im.ra, im.dec
 
@@ -518,7 +508,7 @@ class TW:
         if plot_apers:
             for i in range(len(self.apertures)):
                 aper = self.apertures[i]
-                aper_temp = RectangularAperture(
+                aper_temp = photutils.aperture.RectangularAperture(
                                         (
                                         (aper.positions[0] - centre_manga[0]) * pixscale_manga / pixscale_img + centre_img[0], 
                                         (aper.positions[1] - centre_manga[1]) * pixscale_manga / pixscale_img + centre_img[1]
@@ -646,8 +636,6 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
         # Adjust barlen_temp if needed
         if barlen_temp < 0:
             barlen_temp = 0
-
-        prev = time.time()
 
         # Part 1: Get Line of Nodes (LON)
         m_LON, b_LON = get_LON(tw.stellar_flux, PA_temp, centre)
@@ -794,7 +782,7 @@ def get_centre(mapp, centre_method = 'brightest', sigma = 3):
         return (math.ceil(mapp.value.shape[0]/2),math.ceil(mapp.value.shape[1]/2)) 
     
     if centre_method == 'brightest':
-        gaussian_field = gaussian_filter(mapp.value, sigma=sigma)
+        gaussian_field = scipy.ndimage.gaussian_filter(mapp.value, sigma=sigma)
         inds = np.where(gaussian_field == np.max(gaussian_field))
         if len(inds[0]) > 1:
             #if more than one pixel found, take one closest to actual centre
@@ -968,7 +956,7 @@ def plot_aper_contours(aper, color = 'white', aper_type = 'RectAper', ls = '-', 
     assert len(aper.positions.flatten()) == 2, "Cannot deal with multiple positions, yet."
     
     if aper_type == 'RectAper':
-        aper_plot = RectangularAperture((aper.positions[0]+0.5, aper.positions[1]+0.5), 
+        aper_plot = photutils.aperture.RectangularAperture((aper.positions[0]+0.5, aper.positions[1]+0.5), 
                                         w = aper.w, h = aper.h, theta = aper.theta)
 
 
@@ -980,7 +968,7 @@ def plot_aper_contours(aper, color = 'white', aper_type = 'RectAper', ls = '-', 
     
     if aper_type == 'EllipticalAnnulus':
         
-        aper_plot = EllipticalAnnulus((aper.positions[0]+0.5, aper.positions[1]+0.5),
+        aper_plot = photutils.aperture.EllipticalAnnulus((aper.positions[0]+0.5, aper.positions[1]+0.5),
                                      a_in = aper.a_in, a_out = aper.a_out,
                                      b_in = aper.b_in, b_out = aper.b_out,
                                      theta = aper.theta)
@@ -1023,24 +1011,24 @@ def get_aper(slit_centre, slit_width, slit_theta, stellar_vel, slit_length_metho
 
         h_stepsizes = [20,5,1]
 
-        aper = RectangularAperture(slit_centre, w = slit_width, h = h, theta = slit_theta)
-        reached_hex = float(aperture_photometry(hex_map, aper, method = 'center')['aperture_sum'])
+        aper = photutils.aperture.RectangularAperture(slit_centre, w = slit_width, h = h, theta = slit_theta)
+        reached_hex = float(photutils.aperture.aperture_photometry(hex_map, aper, method = 'center')['aperture_sum'])
 
         for h_stepsize in h_stepsizes:
 
             reached_hex = 0.0 
             while reached_hex == 0.0 and h <= slit_length:
                 h+=h_stepsize
-                aper = RectangularAperture(slit_centre, w = slit_width, h = h, theta = slit_theta)
-                reached_hex = float(aperture_photometry(hex_map, aper, method = 'center')['aperture_sum'])
+                aper = photutils.aperture.RectangularAperture(slit_centre, w = slit_width, h = h, theta = slit_theta)
+                reached_hex = float(photutils.aperture.aperture_photometry(hex_map, aper, method = 'center')['aperture_sum'])
 
             h-=h_stepsize
 
-        aper = RectangularAperture(slit_centre, w = slit_width, h = h, theta = slit_theta)    
+        aper = photutils.aperture.RectangularAperture(slit_centre, w = slit_width, h = h, theta = slit_theta)    
     
     if slit_length_method == 'user_defined':
         assert ~np.isinf(slit_length), 'Please define slit_length to use this setting.'
-        aper = RectangularAperture(slit_centre, w = slit_width, h = slit_length, theta = slit_theta)
+        aper = photutils.aperture.RectangularAperture(slit_centre, w = slit_width, h = slit_length, theta = slit_theta)
     
     return aper
 
@@ -1086,15 +1074,15 @@ def determine_pattern_speed(stellar_flux, X_Sigma, V_Sigma, apers, inc, aperture
     Vs = []
 
     for aper in apers:#can I ignore forbidden_labels here? -> Yes
-        phot_table_flux = aperture_photometry(stellar_flux.value, aper, method = aperture_integration_method)
+        phot_table_flux = photutils.aperture.aperture_photometry(stellar_flux.value, aper, method = aperture_integration_method)
         flux = float(phot_table_flux['aperture_sum'])
 
         if flux == 0:
             continue #just ignore
         else: #can I ignore forbidden_labels here? -> Yes
-            phot_table_X = aperture_photometry(X_Sigma.value, aper, method = aperture_integration_method)
+            phot_table_X = photutils.aperture.aperture_photometry(X_Sigma.value, aper, method = aperture_integration_method)
             Xs.append(float(phot_table_X['aperture_sum'])/flux)
-            phot_table_V = aperture_photometry(V_Sigma.value, aper, method = aperture_integration_method)
+            phot_table_V = photutils.aperture.aperture_photometry(V_Sigma.value, aper, method = aperture_integration_method)
             
             Vs.append(float(phot_table_V['aperture_sum'])/flux)
 
@@ -1160,7 +1148,7 @@ def get_n_pix_in_aper(mapp,aper, method = 'center'):
     
     ones = np.full_like(mapp, 1) #to calculate n_pix
     
-    phot_table = aperture_photometry(ones, aper, method = method)
+    phot_table = photutils.aperture.aperture_photometry(ones, aper, method = method)
     n_pix = phot_table['aperture_sum']
     
     #however, maybe some values are in annulus, but don't have values in the mapp
@@ -1193,7 +1181,7 @@ def velFunc(xdata, Vflat,rt):
 def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, maps, aperture_integration_method, forbidden_labels = ['DONOTUSE'], correct_velcurve = True, velcurve_aper_width = 10):
         
     # Find the rectangular aperature
-    aper_rect = RectangularAperture(centre, w = velcurve_aper_width, h = stellar_vel.shape[0]*1.5, theta = (PA-90)/180*np.pi)
+    aper_rect = photutils.aperture.RectangularAperture(centre, w = velcurve_aper_width, h = stellar_vel.shape[0]*1.5, theta = (PA-90)/180*np.pi)
 
 
     # apply the rect aperature first
@@ -1239,7 +1227,7 @@ def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, 
 
     # Fit profile with basic 2 param arctan function
     if len(arcsec) > 0 and len(vel) > 0:
-        popt, pcov = curve_fit(velFunc, arcsec, vel, bounds = (0, np.inf))
+        popt, pcov = scipy.optimize.curve_fit(velFunc, arcsec, vel, bounds = (0, np.inf))
         MSE = np.sum( (vel - velFunc(arcsec,popt[0],popt[1]))**2)
 
 
@@ -1301,7 +1289,7 @@ def save_TWs(TWs,fileloc = ''):
     as a string in a csv file. Feels a bit convoluted, but I couldn't directly save the bytes in a csv... 
     '''
     if fileloc == '':
-        fileloc = str(int(time.time()))+'.csv'
+        fileloc = 'temp.csv'
         
     with open(fileloc, 'w') as f:
             writer = csv.writer(f)
