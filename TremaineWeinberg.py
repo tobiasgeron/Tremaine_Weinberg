@@ -1,7 +1,7 @@
 '''
 Created December 2021 by Tobias Géron.
 Contains everything to perform the Tremaine-Weinberg method on MaNGA galaxies.
-More info on the method: 
+More info on the method and papers that use it: 
 Tremaine, Weinberg (1984): https://ui.adsabs.harvard.edu/abs/1984ApJ...282L...5T/abstract
 Aguerri et al. (2015): https://ui.adsabs.harvard.edu/abs/2015A%26A...576A.102A/abstract
 Cuomo et al. (2019): https://ui.adsabs.harvard.edu/abs/2019A%26A...632A..51C/abstract
@@ -592,41 +592,45 @@ class TW:
 ##----------##
 
 def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0, barlen_err = 0.0, PA_bar_err = 0.0,
-                    slit_separation = 0, slit_width = 1, aperture_integration_method = 'center', 
-                    forbidden_labels = ['DONOTUSE','UNRELIABLE','NOCOV'],  
-                    n_MC = 0, deproject_bar = True,
-                    cosmo = [], redshift = np.nan, correct_velcurve = True, velcurve_aper_width = 5, slit_length_method = 'default', slit_length = np.inf,
-                    min_slit_length = 25):
+                    slit_width = 1, slit_separation = 0, slit_length_method = 'default', slit_length = np.inf,
+                    min_slit_length = 25, n_iter = 0, cosmo = [], redshift = np.nan, aperture_integration_method = 'center', 
+                    forbidden_labels = ['DONOTUSE','UNRELIABLE','NOCOV'], deproject_bar = True, correct_velcurve = True, 
+                    velcurve_aper_width = 5):
     
     '''
     Main function that user will call. Will return the TW class. 
 
     Inputs:
-    PA: position angle of galaxy, in degrees.
-    inc: inclination of galaxy, in degrees
-    barlen: length of the entire bar of the galaxy, in arcsec (so not bar radius, but bar diameter!)
-    PA_bar: position angle of the bar, in degrees
-    maps: a MaNGA maps object. If you have a MaNGA cube, can get the maps object by doing: Maps(plateifu = plateifu, bintype='VOR10').
-
+    PA (float): Position angle of galaxy, in degrees. The PAs are defined as counterclockwise from 3 o'clock on the DECaLS pictures
+    inc (float): Inclination of galaxy, in degrees.
+    barlen (float): Length of the entire bar of the galaxy, in arcsec (so not bar radius, but bar diameter!).
+    PA_bar (float): Position angle of the bar, in degrees.
+    maps (MaNGA Maps): A MaNGA maps object. If you have a MaNGA cube, can get the maps object by doing: Maps(plateifu = plateifu, bintype='VOR10'). See: https://sdss-marvin.readthedocs.io/en/latest/tools/maps.html
 
 
     Optional inputs:
-    PA_err (float): Error on the galaxy PA, in degrees
-    inc_err (float): Error on the inclination of the galaxy, in degrees
-    barlen_err (float): Error on the length of the bar, in arcsec (error on the entire bar, not bar radius!)
-    PA_bar_err (float): Error on the PA of the bar, in degrees
-    slit_separation (float): Separation between slits, in arcsec
-    slit_width (float): width of each slit, in arcsec
-    aperture_integration_method (bool): The integration method used with the apertures. Can be either 'center' or 'exact'.
-    PA_err is the error (stdev) in the galaxy PA. Used to determine the error on Omega_bar. 
-    n_MC is the amount of Monte Carlo loops used to determine the error on Omega_bar. Suggested to be 1000.
-    The PAs are defined as counterclockwise from 3 o'clock. 
+    PA_err (float): Error on the galaxy PA, in degrees.
+    inc_err (float): Error on the inclination of the galaxy, in degrees.
+    barlen_err (float): Error on the length of the bar, in arcsec (error on the entire bar, not bar radius!).
+    PA_bar_err (float): Error on the PA of the bar, in degrees.
+
+    slit_width (float): Width of each slit, in arcsec.
+    slit_separation (float): Separation between slits, in arcsec.
     slit_length_method (str): Either 'default' or 'user_defined'. Decides which method to use to determine the slit lengths.
-    slit_length (float): maximum value of slit length, in pixels. If slit_length_method == 'user_defined', this is the slit length that will be used.
+    slit_length (float): Maximum value of slit length, in pixels. If slit_length_method == 'user_defined', this is the slit length that will be used.
+    min_slit_length (float): Minimum value of slit length, in pixels. If slit is shorter than that, ignore slit.
+
+    n_iter (int): Amount of iterations used to determine the posterior distributions of Omega, Rcr and R. Default is 0. Recommended value for accurate posteriors and errors is 1000.
+    cosmo (astropy cosmology): An astropy cosmology (e.g.: FlatLambdaCDM(H0=70 km / (Mpc s), Om0=0.3, Tcmb0=2.725 K, Neff=3.04, m_nu=[0. 0. 0.] eV, Ob0=None)). Used together with `redshift' to convert arcsec to kpc.
+    redshift (float): Redshift of the target. Used together with `cosmo' to convert arcsec to kpc. 
+    aperture_integration_method (bool): The integration method used with the apertures. Can be either 'center' or 'exact'.
+    forbidden_labels (list): List of possible labels in the MaNGA datacube. Will ignore spaxels that are associated with any of these labels
     deproject_bar (bool): Whether to deproject the bar using the PA, PA_bar and inclination of the galaxy. Strongly advised to always keep on True.
-    velcurve_aper_width (int): How many pixels to use to determine the velocity curve.
     correct_velcurve (bool): Whether to correct the velocity and positions for the inclination and PA of the galaxy while determining the velocity curve
-    Currently, if MC = 0, it will run once with best-guess inputs. If MC > 0, it will run the MC, Omega, Rcr and R are the
+    velcurve_aper_width (int): How many pixels to use to determine the velocity curve.
+
+    
+    Currently, if n_iter = 0, it will run once with best-guess inputs. If n_iter > 0, it will run the MC, Omega, Rcr and R are the
     median of the MC. After MC, it will run one last time with the best-guess inputs for all the figures etc. 
     '''
 
@@ -636,9 +640,9 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
     pixscale = get_pixscale(tw)
     centre = get_centre(tw.stellar_flux)
 
-    # TODO in case n_MC == 0
+    # TODO in case n_iter == 0
     # Part 1 - 5 are in this MC loop
-    if n_MC == 0:
+    if n_iter == 0:
         '''
         if parameters for MC are not specified, run through the loop once with the provided PA value.
         '''
@@ -647,10 +651,10 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
         PA_bar_err = 0
         barlen_err = 0
 
-    #n_MC += 1 #always add one, last one will be with normal PA, and will be used for the figures, but not saved in the MC loops
+    #n_iter += 1 #always add one, last one will be with normal PA, and will be used for the figures, but not saved in the MC loops
     
-    for n in range(n_MC+1):
-        if n == n_MC: #means we're over the MC. Doing one more round with the best-fit values for the figures.
+    for n in range(n_iter+1):
+        if n == n_iter: #means we're over the MC. Doing one more round with the best-fit values for the figures.
             PA_temp = PA
             inc_temp = inc
             PA_bar_temp = PA_bar
@@ -722,7 +726,7 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
         else:
             R = R_corot / (barlen_temp/2)
 
-        if n < n_MC or n_MC == 0:
+        if n < n_iter or n_iter == 0:
             tw.save_intermediate_MC_results(apers,Omega,R_corot,R,2*bar_rad_deproj,[Xs, Vs],z,[arcsec, vel],V_curve_fit_params)
 
     Omega = np.nanmedian(tw.Omega_lst)
@@ -731,7 +735,7 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
 
     # Step 7: Error propogation: put in separate function later
     #https://en.wikipedia.org/wiki/Propagation_of_uncertainty
-    if n_MC == 0: 
+    if n_iter == 0: 
         Omega_err_ll, Omega_err_ul = np.nan, np.nan
         R_corot_err_ll, R_corot_err_ul = np.nan, np.nan
         R_err_ll, R_err_ul = np.nan, np.nan
@@ -1125,13 +1129,13 @@ def determine_pattern_speed(stellar_flux, X_Sigma, V_Sigma, apers, inc, aperture
     Xs = []
     Vs = []
 
-    for aper in apers:#can I ignore the snr and forbidden_labels here?
+    for aper in apers:#can I ignore forbidden_labels here? -> Yes
         phot_table_flux = aperture_photometry(stellar_flux.value, aper, method = aperture_integration_method)
         flux = float(phot_table_flux['aperture_sum'])
 
         if flux == 0:
             continue #just ignore
-        else: #can I ignore the snr and forbidden_labels here?
+        else: #can I ignore forbidden_labels here? -> Yes
             phot_table_X = aperture_photometry(X_Sigma.value, aper, method = aperture_integration_method)
             Xs.append(float(phot_table_X['aperture_sum'])/flux)
             phot_table_V = aperture_photometry(V_Sigma.value, aper, method = aperture_integration_method)
