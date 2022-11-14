@@ -602,7 +602,7 @@ class TW:
 def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, slit_separation = 0, slit_width = 1, method = 'center', 
                     forbidden_labels = ['DONOTUSE','UNRELIABLE','NOCOV'], snr_min = 0, PA_err = 0, inc_err = 0, barlen_err = 0, PA_bar_err = 0, 
                     n_MC = 0, Vc = 0, correct_velcurve = True, deproject_bar = True, h_method = 'individual',
-                    cosmo = [], redshift = np.nan, aper_rect_width = 5, correct_xy = True, print_times = False, slit_length = np.inf,
+                    cosmo = [], redshift = np.nan, aper_rect_width = 5, correct_xy = True, slit_length = np.inf,
                     min_slit_length = 25):
     
     '''
@@ -625,8 +625,6 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, slit_separation = 0, slit_w
     n_MC is the amount of Monte Carlo loops used to determine the error on Omega_bar. Suggested to be 1000.
     The PAs are defined as counterclockwise from 3 o'clock. 
     slit_length (float): maximum value of slit length, in pixels
-
-    print_times is for debugging/speeding up the code
 
     Currently, if MC = 0, it will run once with best-guess inputs. If MC > 0, it will run the MC, Omega, Rcr and R are the
     median of the MC. After MC, it will run one last time with the best-guess inputs for all the figures etc. 
@@ -687,18 +685,9 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, slit_separation = 0, slit_w
         xs_LON = np.linspace(0,tw.stellar_flux.shape[0],10)
         ys_LON = xs_LON * m_LON + b_LON
 
-        if print_times:
-            print(f'Part I: {np.round(time.time() - prev,4)} seconds elapsed.')
-        prev = time.time()
-
         # Part 2: Get other slits
         slits = get_pseudo_slits(tw.stellar_flux, (m_LON, b_LON), PA_temp, PA_bar_temp, barlen_temp, centre,
             pixscale = pixscale, sep = slit_separation, width_slit = slit_width)
-
-        if print_times:
-            print(f'Part II: {np.round(time.time() - prev,4)} seconds elapsed.')
-        prev = time.time()
-
 
         # Part 3: Convert slits to actual apertures
         points = get_slit_centres(tw.stellar_flux,slits,centre)
@@ -715,26 +704,14 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, slit_separation = 0, slit_w
             if aper.h > min_slit_length: #ensure that it is not too short
                 apers.append(aper)
 
-        if print_times:
-            print(f'Part III: {np.round(time.time() - prev,4)} seconds elapsed.')
-        prev = time.time()
-
         # Part 4: Create X * Sigma and Vlos * Sigma maps
         X_map = create_X_map(tw.stellar_flux, slits[0], centre, pixscale)
         X_Sigma = tw.stellar_flux * X_map
         V_Sigma = tw.stellar_flux * tw.stellar_vel
 
-        if print_times:
-            print(f'Part IV: {np.round(time.time() - prev,4)} seconds elapsed.')
-        prev = time.time()
-
         # Step 5: Do integration and determine Omega
         Xs, Vs, z, Omega = determine_pattern_speed(tw.stellar_flux, X_Sigma, V_Sigma, apers, inc_temp, method, forbidden_labels = tw.forbidden_labels, snr_min = tw.snr_min)
         Omega = np.abs(Omega)
-        
-        if print_times:
-            print(f'Part V: {np.round(time.time() - prev,4)} seconds elapsed.')
-        prev = time.time()
 
         # Step 6: Find V curve and corotation radius
         R_corot, vel, arcsec, V_curve_apers, V_curve_fit_params = determine_corotation_radius(Omega, tw.stellar_vel, tw.on_sky_xy, centre, PA_temp, inc_temp, maps, method, forbidden_labels = tw.forbidden_labels, Vc_input = Vc, correct_velcurve = correct_velcurve, aper_rect_width = aper_rect_width, correct_xy = correct_xy)
@@ -744,10 +721,6 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, slit_separation = 0, slit_w
             R = R_corot / bar_rad_deproj
         else:
             R = R_corot / (barlen_temp/2)
-
-        if print_times:
-            print(f'Part VI: {np.round(time.time() - prev,4)} seconds elapsed.')
-        prev = time.time()
 
         if n < n_MC or n_MC == 0:
             tw.save_intermediate_MC_results(apers,Omega,R_corot,R,2*bar_rad_deproj,[Xs, Vs],z,[arcsec, vel],V_curve_fit_params)
@@ -781,10 +754,6 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, slit_separation = 0, slit_w
         #R_err_ll = np.abs(R) * np.sqrt( (barlen_err/barlen)**2 + (R_corot_err_ll/R_corot)**2)
         R_err_ul = np.nanpercentile(tw.R_lst,84)-R
         R_err_ll = R - np.nanpercentile(tw.R_lst,16)
-
-    if print_times:
-        print(f'Step VII: {np.round(time.time() - prev,2)} seconds elapsed.')
-    prev = time.time()
 
     # Part -1: Save results and return
     tw.save_results(centre, pixscale, (m_LON, b_LON), slits, apers, X_map, X_Sigma, V_Sigma, [Xs, Vs], z, Omega, (Omega_err_ll, Omega_err_ul), R_corot, (R_corot_err_ll, R_corot_err_ul), R, (R_err_ll, R_err_ul), [arcsec, vel], V_curve_apers, V_curve_fit_params, bar_rad_deproj*2) 
