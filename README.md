@@ -48,7 +48,7 @@ OPTIONAL INPUTS:
 `correct_velcurve (bool)`: Whether to correct the velocity and positions for the inclination and PA of the galaxy while determining the velocity curve. 
 `velcurve_aper_width (int)`: How many pixels to use to determine the velocity curve.  
 
-OUTPUTS
+OUTPUTS:  
 Returns TW class, defined in TremaineWeinberg.py. The TW class contains everything that is calculated. See Example.ipynb to see how to access it.
 
 
