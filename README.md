@@ -18,12 +18,23 @@ This code has been tested with python 3.7.9, numpy 1.19.2, matplotlib 3.3.2, [ph
 
 Warning: This code is still under development.
 
-The main function is: 
+The most simple way to use the code is:
+```
+from TremaineWeinberg import Tremaine_Weinberg
+
+tw = Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps)
+
+print(f'The bar pattern speed is {tw.Omega} km s-1 arcsec-1.')
+print(f'The corotation radius is {tw.R_corot} arcsec.')
+print(f'Curly R is {tw.R}.')
+```
+
+All the possible arguments are found here:
 
 `Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0, barlen_err = 0.0, PA_bar_err = 0.0, slit_width = 1, slit_separation = 0, slit_length_method = 'default', slit_length = np.inf, min_slit_length = 12, n_iter = 0, cosmo = [], redshift = np.nan, aperture_integration_method = 'center', forbidden_labels = ['DONOTUSE','UNRELIABLE','NOCOV'], deproject_bar = True, correct_velcurve = True, velcurve_aper_width = 5)`
 
 INPUTS:  
-`PA (float)`: Position angle of galaxy, in degrees. The PAs are defined as counterclockwise from 3 o'clock on the DECaLS pictures. 
+`PA (float)`: Position angle of galaxy, in degrees. The PAs are defined as counterclockwise from 3 o'clock on the DECaLS pictures.   
 `inc (float)`: Inclination of galaxy, in degrees.  
 `barlen (float)`: Length of the entire bar of the galaxy, in arcsec (so not bar radius, but bar diameter!).  
 `PA_bar (float)`: Position angle of the bar, in degrees.  
@@ -45,7 +56,7 @@ OPTIONAL INPUTS:
 `aperture_integration_method (bool)`: The integration method used with the apertures. Can be either 'center' or 'exact'.  
 `forbidden_labels (list)`: List of possible labels in the MaNGA datacube. Will ignore spaxels that are associated with any of these labels. 
 `deproject_bar (bool)`: Whether to deproject the bar using the PA, PA_bar and inclination of the galaxy. Strongly advised to always keep on True.  
-`correct_velcurve (bool)`: Whether to correct the velocity and positions for the inclination and PA of the galaxy while determining the velocity curve. 
+`correct_velcurve (bool)`: Whether to correct the velocity and positions for the inclination and PA of the galaxy while determining the velocity curve.   
 `velcurve_aper_width (int)`: How many pixels to use to determine the velocity curve.  
 
 OUTPUTS:  
