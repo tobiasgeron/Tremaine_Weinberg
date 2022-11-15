@@ -58,7 +58,7 @@ class TW:
         PA_bar: position angle of the bar, in degrees
         maps: a MaNGA maps object. If you have a MaNGA cube, can get the maps object by doing: my_cube.getMaps(bintype='VOR10').
 
-        The PAs are defined as counterclockwise from 3 o'clock. 
+        The PAs are defined as East of North.
         '''
         self.mangaid = maps.mangaid
         self.plateifu = maps.plateifu
@@ -485,20 +485,14 @@ class TW:
         im.get_new_cutout(n_pix*pixscale, n_pix*pixscale, scale=pixscale)
         ra,dec = im.ra, im.dec
 
-        #create_image_directory(image_dir)
-
         if standalone:
             plt.figure()
-        #img = plot_decals_image(ra,dec,image_dir, origin = 'lower', pixscale = pixscale) #old, for when picture came from DECaLS
-        
-        
-        #img = im.plot() #cannot call im.plot(), as then it always returns new figure and the standalone arg doesn't work.
+
         plt.imshow(im.data, origin = 'lower')
         plt.xticks([])
         plt.yticks([])
 
         centre_manga = self.centre
-        #centre_img = (math.ceil(img.shape[0]/2),math.ceil(img.shape[1]/2)) #old, for when picture came from DECaLS
         centre_img = (math.ceil(n_pix/2), math.ceil(n_pix/2))
 
         pixscale_manga = self.pixscale
@@ -519,8 +513,8 @@ class TW:
 
         if plot_barlen:
             barlen_pix = self.barlen / pixscale_img #pix in img
-            plt.plot([centre_img[1] + np.cos(self.PA_bar/180*np.pi)*barlen_pix/2, centre_img[1] - np.cos(self.PA_bar/180*np.pi)*barlen_pix/2 ],
-                    [centre_img[0] + np.sin(self.PA_bar/180*np.pi)*barlen_pix/2, centre_img[0] - np.sin(self.PA_bar/180*np.pi)*barlen_pix/2], 
+            plt.plot([centre_img[1] + np.abs(np.sin(self.PA_bar/180*np.pi))*barlen_pix/2, centre_img[1] - np.abs(np.sin(self.PA_bar/180*np.pi))*barlen_pix/2 ],
+                    [centre_img[0] + np.abs(np.cos(self.PA_bar/180*np.pi))*barlen_pix/2, centre_img[0] - np.abs(np.cos(self.PA_bar/180*np.pi))*barlen_pix/2], 
                     c='yellow')
 
         if plot_hexagon:
@@ -552,7 +546,7 @@ class TW:
 
 def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0, barlen_err = 0.0, PA_bar_err = 0.0,
                     slit_width = 1, slit_separation = 0, slit_length_method = 'default', slit_length = np.inf,
-                    min_slit_length = 12, n_iter = 0, cosmo = [], redshift = np.nan, aperture_integration_method = 'center', 
+                    min_slit_length = 5, n_iter = 0, cosmo = [], redshift = np.nan, aperture_integration_method = 'center', 
                     forbidden_labels = ['DONOTUSE','UNRELIABLE','NOCOV'], deproject_bar = True, correct_velcurve = True, 
                     velcurve_aper_width = 5):
     
@@ -560,11 +554,11 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
     Main function that user will call. Will return the TW class. 
 
     Inputs:
-    PA (float): Position angle of galaxy, in degrees. The PAs are defined as counterclockwise from 3 o'clock on the DECaLS pictures.
+    PA (float): Position angle of galaxy, in degrees. The PAs are defined as East of North.
     inc (float): Inclination of galaxy, in degrees.
     barlen (float): Length of the entire bar of the galaxy, in arcsec (so not bar radius, but bar diameter!).
     PA_bar (float): Position angle of the bar, in degrees.
-    maps (MaNGA Maps): A MaNGA maps object. If you have a MaNGA cube, can get the maps object by doing: Maps(plateifu = plateifu, bintype='VOR10'). See: https://sdss-marvin.readthedocs.io/en/latest/tools/maps.html.
+    maps (MaNGA Maps): A MaNGA maps object. If you have a MaNGA plateifu, can get the maps object by doing: Maps(plateifu = plateifu, bintype='VOR10'). See: https://sdss-marvin.readthedocs.io/en/latest/tools/maps.html.
 
 
     Optional inputs:
@@ -594,6 +588,7 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
     Notes:
     Currently, if n_iter = 0, it will run once with best-guess inputs. If n_iter > 0, it will run the iterations, Omega, Rcr and R are the
     median of all the iterations. After the iterations, it will run one last time with the best-guess inputs for all the figures etc. 
+    All PAs are defined as East of North.
     '''
 
 
@@ -657,7 +652,7 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
 
 
         for i, s in enumerate(slits):
-            aper = get_aper(points[i], slit_width/pixscale, (PA_temp-90)/180*np.pi, tw.stellar_vel, slit_length_method = slit_length_method, hex_map = hex_map, slit_length = np.round(slit_length/pixscale))
+            aper = get_aper(points[i], slit_width/pixscale, (PA_temp)/180*np.pi, tw.stellar_vel, slit_length_method = slit_length_method, hex_map = hex_map, slit_length = np.round(slit_length/pixscale))
             
             if aper.h > min_slit_length/pixscale: #ensure that it is not too short
                 apers.append(aper)
@@ -719,6 +714,7 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
 ##-------------##
 ## Helper defs ##
 ##-------------##
+
 
 
 # Part 0: Prepare MaNGA masks
@@ -809,7 +805,7 @@ def get_LON(mapp, PA, centre):
     PA_rad = PA * np.pi / 180.
     values = mapp.value
     p1 = centre #the centre
-    p2 = (p1[0] + 10 * np.cos(PA_rad), p1[1] + 10 * np.sin(PA_rad)) #10 is arbitrary, could be anything.
+    p2 = (p1[0] + 10 * np.sin(PA_rad), p1[1] + 10 * np.cos(PA_rad)) #10 is arbitrary, could be anything.
     
     m = (p2[1] - p1[1]) / (p2[0] - p1[0])
     b = -m * p2[0] + p2[1]
@@ -843,25 +839,10 @@ def get_pixscale(tw):
 def get_slit_separation_correction(PA):
     '''
     See eqs 6 from Garma-Oehmichen (2020).
+
+    TODO: implement
     '''
-    while PA > 90:
-        PA -= 180
-    while PA < -90:
-        PA += 90
-        
-    if PA == 90 or PA == -90:
-        return 1
     
-    if PA < 90 and PA > 45:
-        return 1/np.cos( (PA - 90)  * np.pi / 180. )
-    
-    if PA <= 45 and PA >= -45:
-        return 1/np.cos(PA * np.pi / 180. )
-    
-    if PA < -45 and PA > -90:
-        return 1/np.cos( (PA + 90)  * np.pi / 180. )
-    
-    print('Error in finding slit separation!')
     return np.nan
     
 
@@ -999,8 +980,12 @@ def get_aper(slit_centre, slit_width, slit_theta, stellar_vel, slit_length_metho
 
     Units should be in pixels. 
 
+    slit_theta here is in radians, from the positive x axis, increasing counter clockwise. Our x and y axis are reversed though in our arrays.
+
     slit_length (float): maximum value of slit length, in pixels
     '''
+
+    slit_theta = -slit_theta #because of how angles are handled in photutils
 
     assert slit_length_method in ['default','user_defined'], "slit_length_method must be either 'default' or 'user_defined'."
 
@@ -1123,7 +1108,7 @@ def create_phi_map(centre, PA, mapp):
                 angle = math.atan(dY/dX)/np.pi*180
             else:
                 angle = 90
-                
+            angle = 90 - angle # These angles should be East of North too. Without doing 90-angle, they are counter-cockwise from positive x-axis
             phi = angle - PA
 
             while phi > 180:
@@ -1182,7 +1167,7 @@ def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, 
     Calculates the corotation radius, based on all the other parameters.
     '''
     # Find the rectangular aperature
-    aper_rect = photutils.aperture.RectangularAperture(centre, w = velcurve_aper_width, h = stellar_vel.shape[0]*1.5, theta = (PA-90)/180*np.pi)
+    aper_rect = photutils.aperture.RectangularAperture(centre, w = velcurve_aper_width, h = stellar_vel.shape[0]*1.5, theta = (-PA)/180*np.pi) #-PA due to how photutils deal with their theta
 
 
     # apply the rect aperature first
@@ -1191,6 +1176,7 @@ def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, 
     
     # apply correction (from inclination and phi)
     phi_map = create_phi_map(centre, PA, on_sky_xy)
+
     stellar_vel_rect_corr = np.full_like(stellar_vel_rect,0)
     on_sky_xy_rect_corr = np.full_like(on_sky_xy_rect,0)
     
