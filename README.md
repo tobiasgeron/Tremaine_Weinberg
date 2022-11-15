@@ -34,7 +34,7 @@ All the possible arguments are found here:
 `Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0, barlen_err = 0.0, PA_bar_err = 0.0, slit_width = 1, slit_separation = 0, slit_length_method = 'default', slit_length = np.inf, min_slit_length = 12, n_iter = 0, cosmo = [], redshift = np.nan, aperture_integration_method = 'center', forbidden_labels = ['DONOTUSE','UNRELIABLE','NOCOV'], deproject_bar = True, correct_velcurve = True, velcurve_aper_width = 5)`
 
 INPUTS:  
-`PA (float)`: Position angle of galaxy, in degrees. The PAs are defined as counterclockwise from 3 o'clock on the DECaLS pictures.   
+`PA (float)`: Position angle of galaxy, in degrees. The PAs are defined as East of North.   
 `inc (float)`: Inclination of galaxy, in degrees.  
 `barlen (float)`: Length of the entire bar of the galaxy, in arcsec (so not bar radius, but bar diameter!).  
 `PA_bar (float)`: Position angle of the bar, in degrees.  
