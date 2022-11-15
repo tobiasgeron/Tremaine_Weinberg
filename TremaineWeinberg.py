@@ -488,13 +488,12 @@ class TW:
         if standalone:
             plt.figure()
 
-        plt.imshow(im.data, origin = 'lower')
+        plt.imshow(im.data, origin = 'lower') # NOTE: because of origin = 'lower', north will be down now... So, going 12o'clock, 3, 6, 9, on the image, the cardinal directions now are S, W, N, E.
         plt.xticks([])
         plt.yticks([])
 
         centre_manga = self.centre
         centre_img = (math.ceil(n_pix/2), math.ceil(n_pix/2))
-
         pixscale_manga = self.pixscale
         pixscale_img = pixscale 
 
@@ -513,8 +512,8 @@ class TW:
 
         if plot_barlen:
             barlen_pix = self.barlen / pixscale_img #pix in img
-            plt.plot([centre_img[1] + np.abs(np.sin(self.PA_bar/180*np.pi))*barlen_pix/2, centre_img[1] - np.abs(np.sin(self.PA_bar/180*np.pi))*barlen_pix/2 ],
-                    [centre_img[0] + np.abs(np.cos(self.PA_bar/180*np.pi))*barlen_pix/2, centre_img[0] - np.abs(np.cos(self.PA_bar/180*np.pi))*barlen_pix/2], 
+            plt.plot([centre_img[1] - np.sin(self.PA_bar/180*np.pi)*barlen_pix/2, centre_img[1] + np.sin(self.PA_bar/180*np.pi)*barlen_pix/2],
+                    [centre_img[0] - np.cos(self.PA_bar/180*np.pi)*barlen_pix/2, centre_img[0] + np.cos(self.PA_bar/180*np.pi)*barlen_pix/2], 
                     c='yellow')
 
         if plot_hexagon:
