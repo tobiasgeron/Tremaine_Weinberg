@@ -10,7 +10,7 @@ Cuomo et al. (2019): https://ui.adsabs.harvard.edu/abs/2019A%26A...632A..51C/abs
 Garma-Oehmichen et al. (2020): https://ui.adsabs.harvard.edu/abs/2020MNRAS.491.3655G/abstract  
 Géron et al. (2022): in prep.   
 
-This package was developed for Géron et al. (2022, in prep) and is used there to determine the bar pattern speeds for a large sample of strongly and weakly barred galaxies, using data from MaNGA. The code can be found in Tremaine_Weinberg.py. An example of how to use the code can be found in Example.ipynb. Table 1 and Table 3 from Géron et al. (2022) are found in tables_geron2022/ directory. 
+This package was developed for Géron et al. (2022, in prep) and is used there to determine the bar pattern speeds for a large sample of strongly and weakly barred galaxies, using data from MaNGA. The code can be found in TremaineWeinberg.py. An example of how to use the code can be found in Example.ipynb. Table 1 and Table 3 from Géron et al. (2022) are found in tables_geron2022/ directory. 
 
 This code has been tested with python 3.7.9, numpy 1.19.2, matplotlib 3.3.2, [photutils](https://photutils.readthedocs.io/en/stable/  ) 1.2.0, [marvin](https://sdss-marvin.readthedocs.io/en/latest/) 2.7.1, scipy, 1.6.2, csv 1.0.   
 
@@ -18,15 +18,13 @@ This code has been tested with python 3.7.9, numpy 1.19.2, matplotlib 3.3.2, [ph
 
 Warning: This code is still under development.
 
-The most simple way to use the code is:
+The simplest way to use the code is:
 ```
 from TremaineWeinberg import Tremaine_Weinberg
 
 tw = Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps)
 
 print(f'The bar pattern speed is {tw.Omega} km s-1 arcsec-1.')
-print(f'The corotation radius is {tw.R_corot} arcsec.')
-print(f'Curly R is {tw.R}.')
 ```
 
 All the possible arguments are found here:
