@@ -38,7 +38,7 @@ INPUTS:
 `inc (float)`: Inclination of galaxy, in degrees.  
 `barlen (float)`: Length of the entire bar of the galaxy, in arcsec (so not bar radius, but bar diameter!).  
 `PA_bar (float)`: Position angle of the bar, in degrees.  
-`maps (MaNGA Maps)`: A MaNGA maps object. If you have a MaNGA cube, can get the maps object by doing: Maps(plateifu = plateifu, bintype='VOR10'). See: https://sdss-marvin.readthedocs.io/en/latest/tools/maps.html. 
+`maps (MaNGA Maps)`: A MaNGA maps object. If you have a MaNGA plateifu, can get the maps object by doing: Maps(plateifu = plateifu, bintype='VOR10'). See: https://sdss-marvin.readthedocs.io/en/latest/tools/maps.html. 
 
 OPTIONAL INPUTS:  
 `PA_err (float)`: Error on the galaxy PA, in degrees.  
