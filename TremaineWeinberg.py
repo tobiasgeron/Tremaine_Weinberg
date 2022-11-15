@@ -1071,6 +1071,9 @@ def create_X_map(mapp, LON, centre, sep):
 # Step 5: Do integration and determine Omega
 
 def determine_pattern_speed(stellar_flux, X_Sigma, V_Sigma, apers, inc, aperture_integration_method, forbidden_labels = ['DONOTUSE']):
+    '''
+    Takes the flux, X_Sigma, V_Sigma, apertures and inclination of the galaxy and returns the Xs and Vs integrals, the slope of the fitted line and the pattern speed.
+    '''
     Xs = []
     Vs = []
 
@@ -1138,7 +1141,6 @@ def get_n_pix_in_aper(mapp,aper, method = 'center'):
     Needed to calculate average value in aperature. We need amount of pixels considered.
     mapp should only have the data
 
-
     Actually, maybe look into this instead: https://photutils.readthedocs.io/en/stable/api/photutils.aperture.PixelAperture.html#photutils.aperture.PixelAperture.area_overlap
 
     '''
@@ -1176,7 +1178,9 @@ def velFunc(xdata, Vflat,rt):
 
 
 def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, maps, aperture_integration_method, forbidden_labels = ['DONOTUSE'], correct_velcurve = True, velcurve_aper_width = 10):
-        
+    '''
+    Calculates the corotation radius, based on all the other parameters.
+    '''
     # Find the rectangular aperature
     aper_rect = photutils.aperture.RectangularAperture(centre, w = velcurve_aper_width, h = stellar_vel.shape[0]*1.5, theta = (PA-90)/180*np.pi)
 
