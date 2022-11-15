@@ -1087,21 +1087,17 @@ def determine_pattern_speed(stellar_flux, X_Sigma, V_Sigma, apers, inc, aperture
             
             Vs.append(float(phot_table_V['aperture_sum'])/flux)
 
-
     # Get the fit
     if len(Xs) > 1:
         z = np.polyfit(Xs,Vs,1, full=True)
         Omega = z[0][0]/np.sin(inc/180*np.pi)
     else:
         z = (np.array([np.nan, np.nan]), np.array([]), np.nan, np.array([]), np.array([])) #so it has same shape as a normal z
-        if len(Xs) == 1:
+        if len(Xs) == 1 and Xs[0] != 0:
             Omega = Vs[0]/Xs[0]/np.sin(inc/180*np.pi)
         else:
             Omega = np.nan
-
     return Xs, Vs, z, Omega
-
-
 
 
 # Step 6: Find V curve and corotation radius
