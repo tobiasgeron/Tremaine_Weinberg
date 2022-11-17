@@ -813,6 +813,9 @@ def get_LON(mapp, PA, centre):
 
 
 def get_pixscale(tw):
+    '''
+    Can also just do return 0.5, I believe.
+    '''
     seps_x = []
     # for on_sky_x
     temp = tw.on_sky_x.value #to make it faster
