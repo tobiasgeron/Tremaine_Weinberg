@@ -51,10 +51,10 @@ OPTIONAL INPUTS:
 `n_iter (int)`: Amount of iterations used to determine the posterior distributions of Omega, Rcr and R. Default is 0. Recommended value for accurate posteriors and errors is 1000.  
 `cosmo (astropy cosmology)`: An astropy cosmology (e.g.: FlatLambdaCDM(H0=70 km / (Mpc s), Om0=0.3, Tcmb0=2.725 K, Neff=3.04, m_nu=[0. 0. 0.] eV, Ob0=None)). Used together with 'redshift' to convert arcsec to kpc.  
 `redshift (float)`: Redshift of the target. Used together with 'cosmo' to convert arcsec to kpc.   
-`aperture_integration_method (bool)`: The integration method used with the apertures. Can be either 'center' or 'exact'.  
-`forbidden_labels (list)`: List of possible labels in the MaNGA datacube. Will ignore spaxels that are associated with any of these labels. 
+`aperture_integration_method (bool)`: The integration method used with the apertures. Can be either 'center' or 'exact'. Recommended to leave at 'center'.  
+`forbidden_labels (list)`: List of possible labels in the MaNGA datacube. Will ignore spaxels that are associated with any of these labels.   
 `deproject_bar (bool)`: Whether to deproject the bar using the PA, PA_bar and inclination of the galaxy. Strongly advised to always keep on True.  
-`correct_velcurve (bool)`: Whether to correct the velocity and positions for the inclination and PA of the galaxy while determining the velocity curve.   
+`correct_velcurve (bool)`: Whether to correct the velocity and positions for the inclination and PA of the galaxy while determining the velocity curve. Strongly advised to always keep on True.    
 `velcurve_aper_width (int)`: How many pixels to use to determine the velocity curve.  
 
 OUTPUTS:  
