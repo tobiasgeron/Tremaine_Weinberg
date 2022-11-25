@@ -11,7 +11,6 @@ Géron et al. (2022): in prep.
 
 TODO: 
 Major:
--Change PA to be East or North!
 
 Minor:
 '''
