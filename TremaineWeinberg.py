@@ -11,7 +11,7 @@ Géron et al. (2022): in prep.
 
 TODO: 
 Major:
-
+cd Dock 
 Minor:
 '''
 
@@ -662,10 +662,10 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
 
         # Step 5: Do integration and determine Omega
         Xs, Vs, z, Omega = determine_pattern_speed(tw.stellar_flux, X_Sigma, V_Sigma, apers, inc_temp, aperture_integration_method, forbidden_labels = tw.forbidden_labels)
-        Omega = np.abs(Omega)
+        
 
         # Step 6: Find V curve and corotation radius
-        R_corot, vel, arcsec, V_curve_apers, V_curve_fit_params = determine_corotation_radius(Omega, tw.stellar_vel, tw.on_sky_xy, centre, PA_temp, inc_temp, maps, aperture_integration_method, forbidden_labels = tw.forbidden_labels, correct_velcurve = correct_velcurve, velcurve_aper_width = velcurve_aper_width)
+        R_corot, vel, arcsec, V_curve_apers, V_curve_fit_params = determine_corotation_radius(Omega, tw.stellar_vel, tw.on_sky_xy, centre, PA_temp, inc_temp, maps, forbidden_labels = tw.forbidden_labels, correct_velcurve = correct_velcurve, velcurve_aper_width = velcurve_aper_width)
         delta_PA = np.abs(PA_temp - PA_bar_temp)
         if deproject_bar:
             bar_rad_deproj = barlen_temp/2 * np.sqrt(np.cos(delta_PA/180*np.pi)**2 + np.sin(delta_PA/180*np.pi)**2 / np.cos(inc_temp/180*np.pi)**2) #https://ui.adsabs.harvard.edu/abs/2007MNRAS.381..943G/abstract
@@ -1086,7 +1086,8 @@ def determine_pattern_speed(stellar_flux, X_Sigma, V_Sigma, apers, inc, aperture
             Omega = Vs[0]/Xs[0]/np.sin(inc/180*np.pi)
         else:
             Omega = np.nan
-    return Xs, Vs, z, Omega
+
+    return Xs, Vs, z, np.abs(Omega)
 
 
 # Step 6: Find V curve and corotation radius
@@ -1163,7 +1164,7 @@ def velFunc(xdata, Vflat,rt):
     return Vsys + 2/np.pi * Vflat * np.arctan((xdata-r0)/rt)
 
 
-def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, maps, aperture_integration_method, forbidden_labels = ['DONOTUSE'], correct_velcurve = True, velcurve_aper_width = 10):
+def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, maps, forbidden_labels = ['DONOTUSE'], correct_velcurve = True, velcurve_aper_width = 10):
     '''
     Calculates the corotation radius, based on all the other parameters.
     '''
@@ -1172,8 +1173,8 @@ def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, 
 
 
     # apply the rect aperature first
-    stellar_vel_rect = aper_rect.to_mask(method = aperture_integration_method).to_image(shape = (stellar_vel.shape)) * stellar_vel.value * (stellar_vel.pixmask.get_mask(forbidden_labels)<1).astype(int) #last bit is to incorporate stellar_vel mask
-    on_sky_xy_rect = aper_rect.to_mask(method = aperture_integration_method).to_image(shape = (on_sky_xy.shape)) * on_sky_xy
+    stellar_vel_rect = aper_rect.to_mask(method = 'center').to_image(shape = (stellar_vel.shape)) * stellar_vel.value * (stellar_vel.pixmask.get_mask(forbidden_labels)<1).astype(int) #last bit is to incorporate stellar_vel mask
+    on_sky_xy_rect = aper_rect.to_mask(method = 'center').to_image(shape = (on_sky_xy.shape)) * on_sky_xy
     
     # apply correction (from inclination and phi)
     phi_map = create_phi_map(centre, PA, on_sky_xy)
