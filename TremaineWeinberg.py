@@ -5,14 +5,17 @@ More info on the method and papers that use it:
 Tremaine, Weinberg (1984): https://ui.adsabs.harvard.edu/abs/1984ApJ...282L...5T/abstract
 Aguerri et al. (2015): https://ui.adsabs.harvard.edu/abs/2015A%26A...576A.102A/abstract
 Cuomo et al. (2019): https://ui.adsabs.harvard.edu/abs/2019A%26A...632A..51C/abstract
+Guo et al. (2019): https://ui.adsabs.harvard.edu/abs/2019MNRAS.482.1733G
 Garma-Oehmichen et al. (2020): https://ui.adsabs.harvard.edu/abs/2020MNRAS.491.3655G/abstract
 Géron et al. (2022): in prep. 
 
 
 TODO: 
 Major:
-cd Dock 
+
 Minor:
+Apply Vsys correction after determining centre
+Make function to visualise convergence of slits
 '''
 
 
@@ -118,12 +121,13 @@ class TW:
             self.NRMSE_V_curve_lst.append(np.sqrt(V_curve_fit_params[2][0]/len(V_curve[0])) / ( np.max(V_curve[1]) - np.min(V_curve[1]) ))
         else: self.NRMSE_V_curve_lst.append(np.nan)
 
-    def save_results(self,centre, pixscale, LON, slits, apers, X_map, X_Sigma, V_Sigma, X_V, z, Omega, Omega_err, R_corot, R_corot_err, R, R_err, V_curve, V_curve_apers, V_curve_fit_params, barlen_deproj):
+    def save_results(self,centre, pixscale, LON, slits, apers, aper_Omegas, X_map, X_Sigma, V_Sigma, X_V, z, Omega, Omega_err, R_corot, R_corot_err, R, R_err, V_curve, V_curve_apers, V_curve_fit_params, barlen_deproj):
         self.centre = centre
         self.pixscale = pixscale
         self.LON = LON
         self.slits = slits
         self.apertures = apers
+        self.aper_Omegas = aper_Omegas
         self.X_map = X_map
         self.X_Sigma = X_Sigma
         self.V_Sigma = V_Sigma
@@ -231,12 +235,9 @@ class TW:
         if standalone:
             plt.show()
 
-    def plot_hist_MC(self, variables = ['Omega'], standalone = True, n_bins = 15):
+    def plot_hist_MC(self, variables = ['Omega'], standalone = True, n_bins = 15, perc = 1):
         '''
         This plots the final posterior distribution from the MC for either Omega, R_corot or R.
-
-
-        TODO: Allow user to pass list, similarly to plot_maps.
         '''
         n_plots = len(variables)
         for i in variables:
@@ -276,11 +277,14 @@ class TW:
             var_lst = getattr(self,variable+'_lst')
             UL = var + var_err[1]
             LL = var - var_err[0]
+
+            xmin = np.nanpercentile(var_lst, perc)
+            xmax = np.nanpercentile(var_lst, 100-perc)
             
             if standalone:
                 plt.subplot(1,n_plots,i+1)
             
-            plt.hist(var_lst,bins=n_bins)
+            plt.hist(var_lst,bins=n_bins, range = (xmin,xmax))
             plt.axvline(var, c='black')
             plt.axvline(LL,c='black', ls='--')
             plt.axvline(UL, c='black', ls='--')
@@ -546,7 +550,8 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
                     slit_width = 1, slit_separation = 0, slit_length_method = 'default', slit_length = np.inf,
                     min_slit_length = 5, n_iter = 0, cosmo = [], redshift = np.nan, aperture_integration_method = 'center', 
                     forbidden_labels = ['DONOTUSE','UNRELIABLE','NOCOV'], deproject_bar = True, correct_velcurve = True, 
-                    velcurve_aper_width = 5):
+                    velcurve_aper_width = 5, check_convergence = False, convergence_n = 2, convergence_threshold = 5, 
+                    convergence_stepsize = 0):
     
     '''
     Main function that user will call. Will return the TW class. 
@@ -640,25 +645,38 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
         slits = get_pseudo_slits(tw.stellar_flux, (m_LON, b_LON), PA_temp, PA_bar_temp, barlen_temp, centre,
             pixscale = pixscale, sep = slit_separation, width_slit = slit_width)
 
-        # Part 3: Convert slits to actual apertures
+
+        # Part 3: Create X * Sigma and Vlos * Sigma maps
+        X_map = create_X_map(tw.stellar_flux, slits[0], centre, pixscale)
+        X_Sigma = tw.stellar_flux * X_map
+        V_Sigma = tw.stellar_flux * tw.stellar_vel
+
+
+
+        # Part 4: Convert slits to actual apertures
         points = get_slit_centres(tw.stellar_flux,slits,centre)
         if slit_length_method == 'default':
             hex_map = create_hexagon_map(tw.stellar_vel,forbidden_labels)
         else:
             hex_map = []
+
         apers = []
-
-
+        aper_Omegas = [[],[]] #position 0 is for converged apertures, position 1 is not not converged apertures
         for i, s in enumerate(slits):
             aper = get_aper(points[i], slit_width/pixscale, (PA_temp)/180*np.pi, tw.stellar_vel, slit_length_method = slit_length_method, hex_map = hex_map, slit_length = np.round(slit_length/pixscale))
-            
             if aper.h > min_slit_length/pixscale: #ensure that it is not too short
-                apers.append(aper)
+                
+                if check_convergence: 
+                    converged, aper_Omega = aperture_convergence(aper,X_Sigma, V_Sigma, aperture_integration_method, convergence_n, convergence_threshold, convergence_stepsize)
+                else: 
+                    converged = True
+                    aper_Omega = []
 
-        # Part 4: Create X * Sigma and Vlos * Sigma maps
-        X_map = create_X_map(tw.stellar_flux, slits[0], centre, pixscale)
-        X_Sigma = tw.stellar_flux * X_map
-        V_Sigma = tw.stellar_flux * tw.stellar_vel
+                if converged:
+                    aper_Omegas[0].append(aper_Omega)
+                    apers.append(aper)
+                else:
+                    aper_Omegas[1].append(aper_Omega)
 
         # Step 5: Do integration and determine Omega
         Xs, Vs, z, Omega = determine_pattern_speed(tw.stellar_flux, X_Sigma, V_Sigma, apers, inc_temp, aperture_integration_method, forbidden_labels = tw.forbidden_labels)
@@ -699,7 +717,7 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
         R_err_ll = R - np.nanpercentile(tw.R_lst,16)
 
     # Part -1: Save results and return
-    tw.save_results(centre, pixscale, (m_LON, b_LON), slits, apers, X_map, X_Sigma, V_Sigma, [Xs, Vs], z, Omega, (Omega_err_ll, Omega_err_ul), R_corot, (R_corot_err_ll, R_corot_err_ul), R, (R_err_ll, R_err_ul), [arcsec, vel], V_curve_apers, V_curve_fit_params, bar_rad_deproj*2) 
+    tw.save_results(centre, pixscale, (m_LON, b_LON), slits, apers, aper_Omegas, X_map, X_Sigma, V_Sigma, [Xs, Vs], z, Omega, (Omega_err_ll, Omega_err_ul), R_corot, (R_corot_err_ll, R_corot_err_ul), R, (R_err_ll, R_err_ul), [arcsec, vel], V_curve_apers, V_curve_fit_params, bar_rad_deproj*2) 
     return tw
 
 
@@ -874,7 +892,7 @@ def get_pseudo_slits(mapp,LON,PA, PA_bar, barlength, centre, sep = 1, width_slit
     '''
     
     delta_PA = np.abs(PA - PA_bar)
-    corr_factor = np.abs(np.sin(delta_PA/180*np.pi))
+    corr_factor = np.abs(np.sin(delta_PA/180*np.pi)) 
     
     pseudo_slits = [LON]
     
@@ -896,7 +914,40 @@ def get_pseudo_slits(mapp,LON,PA, PA_bar, barlength, centre, sep = 1, width_slit
     return pseudo_slits
 
 
-# Part 3: Get actual apertures
+# Part 3: Create X * Sigma and Vlos * Sigma maps
+
+def is_left_of(line,point):
+    x = (point[1] - line[1])/line[0]
+    
+    if x >= point[0]:
+        return -1
+    else:
+        return 1
+
+
+def create_X_map(mapp, LON, centre, sep):
+    '''
+    x-axis should be aligned with LON.
+    '''
+    empty = np.full_like(mapp.value,np.nan)
+
+    m_pLON = -1/LON[0] #m1 * m2 = -1 for perpendicular lines
+    b_pLON = -m_pLON * centre[0] + centre[1]
+    
+    for i in range(len(empty)):
+        for j in range(len(empty[i])):
+            #find distance between i,j and line
+            
+            a, b, c = m_pLON, -1, b_pLON
+            dist = np.abs(a*j+b*i+c)/np.sqrt(a**2+b**2) #https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
+            
+            empty[i][j] = is_left_of([m_pLON, b_pLON],[j,i])*dist*sep
+    
+    return empty
+
+
+
+# Part 4: Get actual apertures
 def get_slit_centres(mapp,slits,centre):
     '''
     Need slit centres to put actual apertures on them
@@ -1019,38 +1070,69 @@ def get_aper(slit_centre, slit_width, slit_theta, stellar_vel, slit_length_metho
     
     return aper
 
+def aperture_convergence(aper, X_Sigma, V_Sigma, aperture_integration_method, convergence_n = 5, convergence_threshold = 5, convergence_stepsize = 0):
+    '''
+    Check if this aperture converges, as defined by Zou et al. (2019)
 
-# Part 4: Create X * Sigma and Vlos * Sigma maps
+    Definition of convergence is arbitrary. In our case, we look at the change in the last convergence_n datapoints. If the median change is
+    less than the convergence_threshold, we decide the slit has converged.
 
-def is_left_of(line,point):
-    x = (point[1] - line[1])/line[0]
-    
-    if x >= point[0]:
-        return -1
+    If convergence_stepsize is left to default, we only check the last convergence_n slit lengths. This minimises time wasted on slit lengths
+    that we're not checking for convergence anyway. 
+
+
+    Below is outdated. TODO: Implement option to do this in the future.
+    If convergence_stepsize is left to default, we implement a scheme so that more attention is placed near Lmax. This is done because
+    testing slit convergence is time-consuming. So: every slit length between 1.5*conv_threshold is probed with a stepsize of 1.
+    Them, between 1.5*conv_threshold and 3*conv_threshold, we probe with a stepsize of 2. Then, between 3*conv_threshold and 5*conv_threshold with a 
+    stepsize of 5. Finally, we use a stepsize of 10 until we get to slit_length = 0. This way, we significantly speed up the testing
+    convergence process, without sacrificing accuracy.
+
+
+    '''
+
+    Lmax = aper.h
+    if convergence_stepsize == 0: #if no user-defined stepsize, implement our stepsize plan
+        """
+        threshold1, threshold2 = Lmax - math.ceil(1.2 * (convergence_n)), Lmax - math.ceil(5 * (convergence_n))
+        slit_lengths = list(np.arange(Lmax, threshold1, -1)) + list(np.arange(threshold1, threshold2, -5))
+        while slit_lengths[-1] > 0:# keep adding by 10 until we hit the bottom
+            slit_lengths.append(slit_lengths[-1] - 20)
+        slit_lengths = slit_lengths[::-1] # reverse
+        slit_lengths = [i for i in slit_lengths if i > 0] #remove all negative ones
+        """
+
+        threshold = Lmax - math.ceil(convergence_n)+1
+        slit_lengths = list(np.arange(threshold, Lmax+1, 1))
+        slit_lengths = [i for i in slit_lengths if i > 0] #remove all negative ones
+
     else:
-        return 1
+        slit_lengths = np.arange(1,Lmax+1,convergence_stepsize)
 
+    aper_Omegas = []
 
-def create_X_map(mapp, LON, centre, sep):
-    '''
-    x-axis should be aligned with LON.
-    '''
-    empty = np.full_like(mapp.value,np.nan)
+    # Calculate Omega for all slit lengths
+    for i, sl in enumerate(slit_lengths):
+        aper_temp = photutils.aperture.RectangularAperture(aper.positions, w = aper.w, h = sl, theta = aper.theta)
+        # Don't need to calculate flux integral here as it cancels out
+        phot_table_X = photutils.aperture.aperture_photometry(X_Sigma.value, aper_temp, method = aperture_integration_method)
+        phot_table_V = photutils.aperture.aperture_photometry(V_Sigma.value, aper_temp, method = aperture_integration_method)
+        X = float(phot_table_X['aperture_sum'])
+        V = float(phot_table_V['aperture_sum'])
+        if X != 0:
+            aper_Omegas.append(np.abs(V/X))
+        else:
+            aper_Omegas.append(np.nan)
 
-    m_pLON = -1/LON[0] #m1 * m2 = -1 for perpendicular lines
-    b_pLON = -m_pLON * centre[0] + centre[1]
-    
-    for i in range(len(empty)):
-        for j in range(len(empty[i])):
-            #find distance between i,j and line
-            
-            a, b, c = m_pLON, -1, b_pLON
-            dist = np.abs(a*j+b*i+c)/np.sqrt(a**2+b**2) #https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
-            
-            empty[i][j] = is_left_of([m_pLON, b_pLON],[j,i])*dist*sep
-    
-    return empty
+    # Check convergence
+    convergence_val = np.nanmedian(np.abs(np.diff(aper_Omegas))[-convergence_n+1:])
+    #print(convergence_val)
+    if convergence_val <= convergence_threshold:
+        converged = True
+    else:
+        converged = False
 
+    return converged, [aper_Omegas,slit_lengths]
 
 
 
