@@ -1246,6 +1246,7 @@ def velFunc(xdata, Vflat,rt):
     return Vsys + 2/np.pi * Vflat * np.arctan((xdata-r0)/rt)
 
 
+
 def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, maps, forbidden_labels = ['DONOTUSE'], correct_velcurve = True, velcurve_aper_width = 10):
     '''
     Calculates the corotation radius, based on all the other parameters.
