@@ -2,6 +2,9 @@
 
 [![DOI](https://zenodo.org/badge/493622015.svg)](https://zenodo.org/badge/latestdoi/493622015)
 
+
+Please cite Géron et al. (2022, in prep) when using this code.
+
 ### Summary
 
 This reposity contains everything to perform the Tremaine-Weinberg method on MaNGA galaxies in Python.

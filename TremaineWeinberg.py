@@ -16,6 +16,7 @@ Major:
 Minor:
 Apply Vsys correction after determining centre
 Make function to visualise convergence of slits
+Check whether code crashed if deproject_bar = False? I think just add bar_rad_deproj = barlen_temp/2 will fix this. Double check.
 '''
 
 
