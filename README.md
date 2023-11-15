@@ -15,7 +15,7 @@ Cuomo et al. (2019): https://ui.adsabs.harvard.edu/abs/2019A%26A...632A..51C/abs
 Garma-Oehmichen et al. (2020): https://ui.adsabs.harvard.edu/abs/2020MNRAS.491.3655G/abstract  
 Géron et al. (2023): https://ui.adsabs.harvard.edu/abs/2023MNRAS.521.1775G/abstract   
 
-This package was developed for Géron et al. (2022, in prep) and is used there to determine the bar pattern speeds for a large sample of strongly and weakly barred galaxies, using data from MaNGA. The code can be found in TremaineWeinberg.py. An example of how to use the code can be found in Example.ipynb. Table 1 and Table 3 from Géron et al. (2022) are found in tables_geron2022/ directory. 
+This package was developed for Géron et al. (2023) and is used there to determine the bar pattern speeds for a large sample of strongly and weakly barred galaxies, using data from MaNGA. The code can be found in TremaineWeinberg.py. An example of how to use the code can be found in Example.ipynb. Table 1 and Table 3 from Géron et al. (2023) are found in tables_geron2023/ directory. 
 
 This code has been tested with python 3.7.9, numpy 1.19.2, matplotlib 3.3.2, [photutils](https://photutils.readthedocs.io/en/stable/  ) 1.2.0, [marvin](https://sdss-marvin.readthedocs.io/en/latest/) 2.7.1, scipy, 1.6.2, csv 1.0.   
 
@@ -71,9 +71,9 @@ TODO: Write more documentation.
 
 
 
-# Description tables in tables_geron2022/
+# Description tables in tables_geron2023/
 
-This directory contains the contents of Tables 1 and 3 from Géron et al. (2022). A detailed description of every column is found below.
+This directory contains the contents of Tables 1 and 3 from Géron et al. (2023). A detailed description of every column is found below.
 
 ### Table 1
 
@@ -95,7 +95,7 @@ This directory contains the contents of Tables 1 and 3 from Géron et al. (2022)
 `nsa_sersic_absmag_r` : The NSA absolute r-band magnitude, assuming Ωm=0.3, ΩΛ=0.7, h=0.7, taken from the MaNGA DRPALL.    
 `bar_type`: The bar type according to GZ DESI. Either 'Weak bar' or 'Strong bar'.  
 
-The details of how the bar type, inclination, position angles, bar length and their errors are measured can be found in Section 3 of Géron et al. (2022).
+The details of how the bar type, inclination, position angles, bar length and their errors are measured can be found in Section 3 of Géron et al. (2023).
 
 
 
@@ -117,4 +117,4 @@ The details of how the bar type, inclination, position angles, bar length and th
 `R_ll`: The lower limit of R.  
 `R_ul`: The upper limit of R.  
 
-To see how all these variables (and their errors) were measured, please refer to Géron et al. (2022).
+To see how all these variables (and their errors) were measured, please refer to Géron et al. (2023).
