@@ -1,13 +1,13 @@
 '''
 Created December 2021 by Tobias Géron.
 Contains everything to perform the Tremaine-Weinberg method on MaNGA galaxies.
-More info on the method and papers that use it: 
+More info on the TW method and papers that use the TW method: 
 Tremaine, Weinberg (1984): https://ui.adsabs.harvard.edu/abs/1984ApJ...282L...5T/abstract
 Aguerri et al. (2015): https://ui.adsabs.harvard.edu/abs/2015A%26A...576A.102A/abstract
 Cuomo et al. (2019): https://ui.adsabs.harvard.edu/abs/2019A%26A...632A..51C/abstract
 Guo et al. (2019): https://ui.adsabs.harvard.edu/abs/2019MNRAS.482.1733G
 Garma-Oehmichen et al. (2020): https://ui.adsabs.harvard.edu/abs/2020MNRAS.491.3655G/abstract
-Géron et al. (2022): in prep. 
+Géron et al. (2023): https://ui.adsabs.harvard.edu/abs/2023MNRAS.521.1775G/abstract
 
 
 TODO: 
