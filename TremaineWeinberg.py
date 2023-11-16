@@ -355,7 +355,7 @@ class TW:
         
         fig = plt.gcf()
         ax = plt.gca()
-        marvin.utils.plot.map.plot(dapmap = mapp,fig=fig,ax = ax)
+        marvin.utils.plot.map.plot(dapmap = mapp,fig=fig,ax = ax, plt_style = 'default')
         plt.title(title)
                 
         plt.xlim(0, mapp.shape[0])
@@ -435,7 +435,7 @@ class TW:
             if maps[i] in ['X_map']: #X_map is a special case.
                 fig = plt.gcf()
                 ax = plt.gca()
-                marvin.utils.plot.map.plot(value = mapp,fig=fig,ax = ax, cblabel = cb_label)
+                marvin.utils.plot.map.plot(value = mapp,fig=fig,ax = ax, cblabel = cb_label, plt_style = 'default')
                 plt.title(title)
                 plt.xlim(0, mapp.shape[0])
                 plt.ylim(0, mapp.shape[1])
@@ -443,7 +443,7 @@ class TW:
             else:
                 fig = plt.gcf()
                 ax = plt.gca()
-                marvin.utils.plot.map.plot(dapmap = mapp,fig=fig,ax = ax, cblabel = cb_label)
+                marvin.utils.plot.map.plot(dapmap = mapp,fig=fig,ax = ax, cblabel = cb_label, plt_style = 'default')
                 plt.title(title)
                 plt.xlim(0, mapp.shape[0])
                 plt.ylim(0, mapp.shape[1])
@@ -1011,14 +1011,13 @@ def plot_aper_contours(aper, color = 'white', aper_type = 'RectAper', ls = '-', 
     aper_plot.plot(color=color, ls = ls, alpha = alpha, zorder = 100)
 
 def create_hexagon_map(mapp,forbidden_labels):
+    # Can probably do this much more efficiently
     newmap = np.full_like(mapp.value,0)
-    labels = mapp.pixmask.labels
+    mapp_pixmask = mapp.pixmask.get_mask(forbidden_labels, dtype = bool)
     for i in range(len(mapp)):
         for j in range(len(mapp[i])):
-            labels_in_pix = labels[i][j]
-            for l in labels_in_pix:
-                if l in forbidden_labels:#['NOCOV','LOWCOV','NOVALUE','DONOTUSE','UNRELIABLE']: #Or change to forbidden lablels?
-                    newmap[i][j] = 1
+            if mapp_pixmask[i][j]:
+                newmap[i][j] = 1
     return newmap
 
 
