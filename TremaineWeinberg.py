@@ -77,7 +77,7 @@ class TW:
         self.PA_bar_err = PA_bar_err
 
         self.redshift = redshift
-        self.cosmology = cosmo
+        #self.cosmology = cosmo #Not saving anymore due to package incompatibilities
 
         # get all relevant MaNGA maps
         self.forbidden_labels = forbidden_labels
@@ -122,7 +122,7 @@ class TW:
             self.NRMSE_V_curve_lst.append(np.sqrt(V_curve_fit_params[2][0]/len(V_curve[0])) / ( np.max(V_curve[1]) - np.min(V_curve[1]) ))
         else: self.NRMSE_V_curve_lst.append(np.nan)
 
-    def save_results(self,centre, pixscale, LON, slits, apers, aper_Omegas, X_map, X_Sigma, V_Sigma, X_V, z, Omega, Omega_err, R_corot, R_corot_err, R, R_err, V_curve, V_curve_apers, V_curve_fit_params, barlen_deproj):
+    def save_results(self,centre, cosmo, pixscale, LON, slits, apers, aper_Omegas, X_map, X_Sigma, V_Sigma, X_V, z, Omega, Omega_err, R_corot, R_corot_err, R, R_err, V_curve, V_curve_apers, V_curve_fit_params, barlen_deproj):
         self.centre = centre
         self.pixscale = pixscale
         self.LON = LON
@@ -160,8 +160,8 @@ class TW:
             self.NRMSE_V_curve = np.nan
 
         #Transform Omega and R_corot to physical units, if cosmology is provided
-        if self.cosmology != [] and ~np.isnan(self.redshift):
-            conversion = arcsec_to_kpc(1,self.redshift,self.cosmology)
+        if cosmo != [] and ~np.isnan(self.redshift):
+            conversion = arcsec_to_kpc(1,self.redshift, cosmo)
 
             #For everything Omega
             self.Omega_phys = Omega / conversion 
@@ -718,7 +718,7 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
         R_err_ll = R - np.nanpercentile(tw.R_lst,16)
 
     # Part -1: Save results and return
-    tw.save_results(centre, pixscale, (m_LON, b_LON), slits, apers, aper_Omegas, X_map, X_Sigma, V_Sigma, [Xs, Vs], z, Omega, (Omega_err_ll, Omega_err_ul), R_corot, (R_corot_err_ll, R_corot_err_ul), R, (R_err_ll, R_err_ul), [arcsec, vel], V_curve_apers, V_curve_fit_params, bar_rad_deproj*2) 
+    tw.save_results(centre, cosmo, pixscale, (m_LON, b_LON), slits, apers, aper_Omegas, X_map, X_Sigma, V_Sigma, [Xs, Vs], z, Omega, (Omega_err_ll, Omega_err_ul), R_corot, (R_corot_err_ll, R_corot_err_ul), R, (R_err_ll, R_err_ul), [arcsec, vel], V_curve_apers, V_curve_fit_params, bar_rad_deproj*2) 
     return tw
 
 
