@@ -804,7 +804,7 @@ def get_centre(mapp, centre_method = 'brightest', sigma = 3):
             centre = get_centre(mapp, centre_method = 'centre')
             for i in range(len(inds[0])):
                 #loop over pairs, find dists to actual centre, take closest one.
-                d = np.sqrt((centre[0]-inds[0][i])**2 + (centre[1]-inds[1][i]))
+                d = np.sqrt((centre[0]-inds[0][i])**2 + (centre[1]-inds[1][i])**2)
                 dists.append(d)
 
             inds_dists = np.where(dists == np.min(dists))[0][0]
