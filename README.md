@@ -5,6 +5,8 @@
 
 Please cite [Géron et al. (2023)](https://ui.adsabs.harvard.edu/abs/2023MNRAS.521.1775G/abstract) when using this code.
 
+Also, check out [this interactive tool](https://tobiasgeron.github.io/bar_kinematics.html) to see the pattern speed, corotation radius and curly R visualised on a barred galaxy and understand how these parameters interact with each other.
+
 ### Summary
 
 This reposity contains everything to perform the Tremaine-Weinberg method on MaNGA galaxies in Python.
