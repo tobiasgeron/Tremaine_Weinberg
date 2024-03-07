@@ -17,6 +17,7 @@ Minor:
 Apply Vsys correction after determining centre
 Make function to visualise convergence of slits
 Check whether code crashed if deproject_bar = False? I think just add bar_rad_deproj = barlen_temp/2 will fix this. Double check.
+Add ra and dec to tw
 '''
 
 
@@ -1194,7 +1195,7 @@ def create_phi_map(centre, PA, mapp):
                 angle = 90
             angle = 90 - angle # These angles should be East of North too. Without doing 90-angle, they are counter-cockwise from positive x-axis
             phi = angle - PA
-
+            
             while phi > 180:
                 phi -= 180
             while phi < 0:
@@ -1344,9 +1345,9 @@ def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, 
 
 
 
-####################################
-### Saving and loading the class ###
-####################################
+##############################################
+### Saving, loading and handling the class ###
+##############################################
 
 def save_TWs(TWs,fileloc = ''):
     '''
@@ -1379,3 +1380,20 @@ def load_TWs(fileloc):
         for row in f:
             TWs.append(pickle.loads(bytes().fromhex(row)))               
     return TWs
+
+
+
+
+def read_TWs(TWs,attr):
+    '''
+    TWs is a list of individual tw runs. However, it is quite cumbersome to retrieve data from this list.
+    This function helps with exactly that.
+    attr should be an attribute that the TWs have.
+
+    E.g.: read_TWs(TWs, 'R') to get curly R of all TWs in the list.
+    '''
+    
+    lst = []
+    for i in range(len(TWs)):
+        lst.append(getattr(TWs[i],attr))
+    return np.array(lst)
