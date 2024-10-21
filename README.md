@@ -99,7 +99,7 @@ This directory contains the contents of Tables 1 and 3 from Géron et al. (2023)
 `nsa_elpetro_absmag_r` : The NSA absolute r-band magnitude from elliptical Petrosian fluxes, assuming Ωm=0.3, ΩΛ=0.7, h=0.7, taken from the MaNGA DRPALL.  
 `nsa_sersic_absmag_r` : The NSA absolute r-band magnitude, assuming Ωm=0.3, ΩΛ=0.7, h=0.7, taken from the MaNGA DRPALL.    
 `bar_type`: The bar type according to GZ DESI. Either 'Weak bar' or 'Strong bar'.  
-`is_SF`: A flag whether the galaxy is star-forming (True) or quiescent (False), according to the thresholds quoted in Belfiore+2018.
+`is_SF`: A flag whether the galaxy is star-forming (True) or quiescent (False), according to the relationship quoted in Belfiore+2018.
 
 The details of how the bar type, inclination, position angles, bar length and their errors are measured can be found in Section 3 of Géron et al. (2023).
 
