@@ -9,7 +9,7 @@ Also, check out [this interactive tool](https://tobiasgeron.github.io/bar_kinema
 
 ### Summary
 
-This reposity contains everything to perform the Tremaine-Weinberg method on MaNGA galaxies in Python.
+This repository contains everything to perform the Tremaine-Weinberg method on MaNGA galaxies in Python.
 More info on the Tremaine-Weinberg method and some papers that use it (not with this package, though):  
 Tremaine, Weinberg (1984): https://ui.adsabs.harvard.edu/abs/1984ApJ...282L...5T/abstract  
 Aguerri et al. (2015): https://ui.adsabs.harvard.edu/abs/2015A%26A...576A.102A/abstract  
@@ -79,6 +79,9 @@ This directory contains the contents of Tables 1 and 3 from Géron et al. (2023)
 
 ### Table 1
 
+`iauname`: The NSA-iauname of this target.  
+`dr8_id`: The GZ DESI identifier of this target.  
+`MANGAID`: The MaNGA-id of this target.  
 `PLATEIFU`: The MaNGA plate-ifu number of this target.  
 `RA`: The right ascension of this target. Identical to the OBJRA column in the MaNGA DRPALL.  
 `DEC`: The declination of this target. Identical to the OBJDEC column in the MaNGA DRPALL.  
@@ -96,12 +99,16 @@ This directory contains the contents of Tables 1 and 3 from Géron et al. (2023)
 `nsa_elpetro_absmag_r` : The NSA absolute r-band magnitude from elliptical Petrosian fluxes, assuming Ωm=0.3, ΩΛ=0.7, h=0.7, taken from the MaNGA DRPALL.  
 `nsa_sersic_absmag_r` : The NSA absolute r-band magnitude, assuming Ωm=0.3, ΩΛ=0.7, h=0.7, taken from the MaNGA DRPALL.    
 `bar_type`: The bar type according to GZ DESI. Either 'Weak bar' or 'Strong bar'.  
+`is_SF`: A flag whether the galaxy is star-forming (True) or quiescent (False), according to the thresholds quoted in Belfiore+2018.
 
 The details of how the bar type, inclination, position angles, bar length and their errors are measured can be found in Section 3 of Géron et al. (2023).
 
 
 
 ### Table 3
+`iauname`: The NSA-iauname of this target.  
+`dr8_id`: The GZ DESI identifier of this target.  
+`MANGAID`: The MaNGA-id of this target.  
 `PLATEIFU`: The MaNGA plate-ifu number of this target.  
 `Omega`: The pattern speed of the target, measured in km s-1 arcsec-1.  
 `Omega_ll`: The lower limit of the pattern speed.  
