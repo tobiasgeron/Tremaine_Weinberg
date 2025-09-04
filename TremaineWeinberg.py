@@ -1,7 +1,10 @@
 '''
 Created December 2021 by Tobias Géron.
+Last changed Sep 2025.
+
 Contains everything to perform the Tremaine-Weinberg method on MaNGA galaxies.
 More info on the TW method and papers that use the TW method: 
+
 Tremaine, Weinberg (1984): https://ui.adsabs.harvard.edu/abs/1984ApJ...282L...5T/abstract
 Aguerri et al. (2015): https://ui.adsabs.harvard.edu/abs/2015A%26A...576A.102A/abstract
 Cuomo et al. (2019): https://ui.adsabs.harvard.edu/abs/2019A%26A...632A..51C/abstract
@@ -12,12 +15,14 @@ Géron et al. (2023): https://ui.adsabs.harvard.edu/abs/2023MNRAS.521.1775G/abst
 
 TODO: 
 Major:
+Incorporate parallelisation. I think you would need to put step 1 - 6 in a separate function, and handle the parallelisation logic from the main function. Then, can call steps 1 - 6 again separately for the best-fit values. 
 
 Minor:
 Apply Vsys correction after determining centre
 Make function to visualise convergence of slits
 Check whether code crashed if deproject_bar = False? I think just add bar_rad_deproj = barlen_temp/2 will fix this. Double check.
 Add ra and dec to tw
+Store converge of slits in a better place.
 '''
 
 
@@ -27,14 +32,14 @@ Add ra and dec to tw
 ###############
 
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import math
 import pickle
 import csv
 import photutils
-import marvin
 import scipy
-
+import copy
 
 ############
 ### Code ###
@@ -54,18 +59,15 @@ class TW:
     '''
     TODO: 
     '''
-    def __init__(self,PA,inc,barlen,PA_bar,maps, forbidden_labels, PA_err,inc_err,barlen_err,PA_bar_err,slit_width, cosmo, redshift):
+    def __init__(self,velocity,flux,position,PA,inc,barlen,PA_bar,velocity_err,flux_err, PA_err,inc_err,barlen_err,PA_bar_err,mask,slit_width, cosmo, redshift, name):
         '''
         PA: position angle of galaxy, in degrees.
         inc: inclination of galaxy, in degrees
         barlength: length of the entire bar of the galaxy, in arcsec
         PA_bar: position angle of the bar, in degrees
-        maps: a MaNGA maps object. If you have a MaNGA cube, can get the maps object by doing: my_cube.getMaps(bintype='VOR10').
-
         The PAs are defined as East of North.
         '''
-        self.mangaid = maps.mangaid
-        self.plateifu = maps.plateifu
+        self.name = name
         self.slit_width = slit_width
 
         self.PA = PA #deg
@@ -81,6 +83,9 @@ class TW:
         #self.cosmology = cosmo #Not saving anymore due to package incompatibilities
 
         # get all relevant MaNGA maps
+        """
+        self.mangaid = maps.mangaid
+        self.plateifu = maps.plateifu
         self.forbidden_labels = forbidden_labels
         bintype = maps.bintype.name
         if bintype == 'SPX':
@@ -91,9 +96,28 @@ class TW:
         self.on_sky_x = np.flip(maps['spx_ellcoo_on_sky_x'],0) #arcsec #should be spx_skycoo?
         self.on_sky_y = np.flip(maps['spx_ellcoo_on_sky_y'],0) #arcsec
         self.on_sky_xy = np.sqrt(self.on_sky_x.value**2 + self.on_sky_y.value**2)
+        """
+
+
+        self.stellar_vel = np.flip(velocity,0)
+        self.stellar_flux = np.flip(flux,0)
+        self.on_sky_xy = np.flip(position,0)
+
+        if type(velocity_err) == type(None):
+            velocity_err = np.full_like(np.array(velocity), 0)
+        if type(flux_err) == type(None):
+            flux_err = np.full_like(np.array(flux), 0)
+        if type(mask) == type(None):
+            mask = np.full_like(np.array(velocity), False)
+
+        self.stellar_vel_err = np.flip(velocity_err,0)
+        self.stellar_flux_err = np.flip(flux_err,0)
+        self.mask = np.flip(mask,0)
+
+
 
         #Vsys correction
-        self.stellar_vel, self.Vsys_corr = get_Vsys(self.stellar_vel, self.on_sky_xy, 5, forbidden_labels)
+        self.stellar_vel, self.Vsys_corr = get_Vsys(self.stellar_vel, self.on_sky_xy, 5, self.mask)
 
         #initialse lsts we want to track over all MC runs
         self.apers_lst = []
@@ -335,32 +359,47 @@ class TW:
     def plot_V_curve_contours(self, mapp = 'stellar_vel', standalone = True):
 
         if mapp == 'stellar_flux':
-            mapp = self.stellar_flux
+            data = self.stellar_flux
+            sigma = self.stellar_flux_err
             preset = 'default'
             title = 'stellar flux'
+            unit = r'1 x 10$^{-17}$ erg s$^{-1}$ spaxel$^{-1}$ cm$^{-2}$'
         elif mapp == 'stellar_vel':
-            mapp = self.stellar_vel
+            data = self.stellar_vel
+            sigma = self.stellar_vel_err
             preset = 'velocities'
             title = 'stellar velocity'
+            unit = r'km s$^{-1}$'
         elif mapp == 'X_Sigma':
             #mapp = self.X_Sigma.value
-            mapp = self.X_Sigma
+            data = self.X_Sigma
+            sigma = np.full_like(data,0)
             title = r'X $\Sigma$'
+            preset = 'default'
+            unit = r'1 x 10$^{-17}$ erg arcsec s$^{-1}$ spaxel$^{-1}$ cm$^{-2}$'
         elif mapp == 'V_Sigma':
             #mapp = self.V_Sigma.value
-            mapp = self.V_Sigma
+            data = self.V_Sigma
+            sigma = np.full_like(data,0)
             title = r'V $\Sigma$'
+            preset = 'default'
+            unit = r'1 x 10$^{-17}$ erg km s$^{-2}$ spaxel$^{-1}$ cm$^{-2}$'
 
         if standalone:
             plt.figure(figsize = (5,4))
         
+        plot_ifu(data = data, sigma=sigma,preset=preset, colorbar=True, colorbar_label=unit)
+
+        """ Old plotting using Marvin
         fig = plt.gcf()
         ax = plt.gca()
         marvin.utils.plot.map.plot(dapmap = mapp,fig=fig,ax = ax, plt_style = 'default')
+        """
+
         plt.title(title)
                 
-        plt.xlim(0, mapp.shape[0])
-        plt.ylim(0, mapp.shape[1])
+        plt.xlim(0, data.shape[0])
+        plt.ylim(0, data.shape[1])
 
         for aper in self.V_curve_apers[1]: #are all ellipt
             plot_aper_contours(aper, aper_type = 'EllipticalAnnulus')
@@ -401,28 +440,40 @@ class TW:
         for i in range(n_plots):
             #determine which map to plot
             if maps[i] == 'stellar_flux':
-                mapp = self.stellar_flux
+                data = self.stellar_flux
+                sigma = self.stellar_flux_err
                 unit = r'1 x 10$^{-17}$ erg s$^{-1}$ spaxel$^{-1}$ cm$^{-2}$'
-                #preset = 'default'
+                preset = 'default'
                 title = 'stellar flux'
+
             elif maps[i] == 'stellar_vel':
-                mapp = self.stellar_vel
+                data = self.stellar_vel
+                sigma = self.stellar_vel_err
                 unit = r'km s$^{-1}$'
-                #preset = 'velocities'
+                preset = 'velocities'
                 title = 'stellar velocity'
+
             elif maps[i] == 'X_map':
-                mapp = self.X_map
+                data = self.X_map
+                sigma = np.full_like(data,0)
                 unit = 'arcsec'
+                preset = 'default'
                 title = r'X'
+
             elif maps[i] == 'X_Sigma':
                 #mapp = self.X_Sigma.value #old way, when doing with pcolormesh
-                mapp = self.X_Sigma
+                data = self.X_Sigma
+                sigma = np.full_like(data,0)
                 unit = r'1 x 10$^{-17}$ erg arcsec s$^{-1}$ spaxel$^{-1}$ cm$^{-2}$'
+                preset = 'default'
                 title = r'X $\Sigma$'
+
             elif maps[i] == 'V_Sigma':
                 #mapp = self.V_Sigma.value #old way, when doing with pcolormesh
-                mapp = self.V_Sigma
+                data = self.V_Sigma
+                sigma = np.full_like(data,0)
                 unit = r'1 x 10$^{-17}$ erg km s$^{-2}$ spaxel$^{-1}$ cm$^{-2}$'
+                preset = 'default'
                 title = r'V $\Sigma$'
 
             if standalone:
@@ -433,6 +484,7 @@ class TW:
             else:
                 cb_label = cbar_labels[i]
 
+            """ Old code below using Marvin plotting
             if maps[i] in ['X_map']: #X_map is a special case.
                 fig = plt.gcf()
                 ax = plt.gca()
@@ -448,17 +500,31 @@ class TW:
                 plt.title(title)
                 plt.xlim(0, mapp.shape[0])
                 plt.ylim(0, mapp.shape[1])
+            """
+
+            if maps[i] in ['X_map']: #X_map is a special case.
+                plot_ifu(data = data, preset=preset, colorbar=True, colorbar_label=cb_label)
+                plt.title(title)
+                plt.xlim(0, data.shape[0])
+                plt.ylim(0, data.shape[1])
+            
+            else:
+                plot_ifu(data = data, sigma=sigma,preset=preset, colorbar=True, colorbar_label=cb_label)
+                plt.title(title)
+                plt.xlim(0, data.shape[0])
+                plt.ylim(0, data.shape[1])
+            
 
             #LON
             if plot_LON:
-                xs_LON = np.linspace(0,mapp.shape[0],10)
+                xs_LON = np.linspace(0,data.shape[0],10)
                 ys_LON = xs_LON * self.LON[0] + self.LON[1]
                 plt.plot(xs_LON,ys_LON,color='red',zorder = 100)
 
             #slits
             if plot_slits:
                 for i in range(len(self.slits)):
-                    xs_slit = np.linspace(0,mapp.shape[0],10)
+                    xs_slit = np.linspace(0,data.shape[0],10)
                     ys_slit = xs_slit * self.slits[i][0] + self.slits[i][1]
                     plt.plot(xs_slit,ys_slit,color='red',zorder = 100)
 
@@ -472,8 +538,11 @@ class TW:
             plt.show()
 
 
+"""
     def plot_img(self, image_dir = '../output/gal_images_DECaLS/', pixscale = 0.15, n_pix = 424, standalone = True, plot_apers = False, plot_barlen = False, plot_slits=False, plot_hexagon = False):
         '''
+        UPDATE: plot_img is no longer supported since 2025-09-03.
+
         Will plot grz image. Has to option to overlay the apertures.
         Does need the custom functions we created to pull the images.
 
@@ -525,48 +594,39 @@ class TW:
             ax = plt.gca()
             im.overlay_hexagon(ax, color='magenta', linewidth=1)
 
-        #slits
-        """
-        if plot_slits:
-            '''
-            find slit centres. we know PA. Get eqs from that. 
-            '''
-            points = get_slit_centres(self.stellar_flux,self.slits,centre_manga)
 
-            for i in range(len(self.slits)):
-                xs_slit = np.linspace(0,img.shape[0],10)
-                ys_slit = xs_slit * self.slits[i][0] + self.slits[i][1]
-                plt.plot(xs_slit,ys_slit,color='red')
-        
-        """
         if standalone:
             plt.tight_layout()
             plt.show()
-
+"""
 
 ##----------##
 ## Main def ##
 ##----------##
 
-def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0, barlen_err = 0.0, PA_bar_err = 0.0,
+def Tremaine_Weinberg(velocity, flux, position, PA, inc, barlen, PA_bar, velocity_err = None, flux_err = None, 
+                    PA_err = 0.0, inc_err = 0.0, barlen_err = 0.0, PA_bar_err = 0.0, mask = None,
                     slit_width = 1, slit_separation = 0, slit_length_method = 'default', slit_length = np.inf,
                     min_slit_length = 5, n_iter = 0, cosmo = [], redshift = np.nan, aperture_integration_method = 'center', 
-                    forbidden_labels = ['DONOTUSE','UNRELIABLE','NOCOV'], deproject_bar = True, correct_velcurve = True, 
+                    deproject_bar = True, correct_velcurve = True, 
                     velcurve_aper_width = 5, check_convergence = False, convergence_n = 2, convergence_threshold = 5, 
-                    convergence_stepsize = 0):
+                    convergence_stepsize = 0, pixscale = None, name = ''):
     
     '''
     Main function that user will call. Will return the TW class. 
 
     Inputs:
+    velocity (np.array): Numpy array of the velocity field (gas or stars). Assumed to be in km/s. Assumed to be in NWSE (i.e. north up, west right) orientation.
+    flux (np.array): Numpy array of the flux (gas or stars). Assumed to be in NWSE (i.e. north up, west right) orientation.
+    position (np.array): Numpy array of the distance to the centre of the galaxy. Assumed to be in arcsec.
     PA (float): Position angle of galaxy, in degrees. The PAs are defined as East of North.
     inc (float): Inclination of galaxy, in degrees.
     barlen (float): Length of the entire bar of the galaxy, in arcsec (so not bar radius, but bar diameter!).
     PA_bar (float): Position angle of the bar, in degrees.
-    maps (MaNGA Maps): A MaNGA maps object. If you have a MaNGA plateifu, can get the maps object by doing: Maps(plateifu = plateifu, bintype='VOR10'). See: https://sdss-marvin.readthedocs.io/en/latest/tools/maps.html.
-
 
     Optional inputs:
+    velocity_err (np.array): Error on the velocity field.
+    flux_err (np.array): Error on the flux.
     PA_err (float): Error on the galaxy PA, in degrees.
     inc_err (float): Error on the inclination of the galaxy, in degrees.
     barlen_err (float): Error on the length of the bar, in arcsec (error on the entire bar, not bar radius!).
@@ -581,11 +641,12 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
     n_iter (int): Amount of iterations used to determine the posterior distributions of Omega, Rcr and R. Default is 0. Recommended value for accurate posteriors and errors is 1000.
     cosmo (astropy cosmology): An astropy cosmology (e.g.: FlatLambdaCDM(H0=70 km / (Mpc s), Om0=0.3, Tcmb0=2.725 K, Neff=3.04, m_nu=[0. 0. 0.] eV, Ob0=None)). Used together with `redshift' to convert arcsec to kpc.
     redshift (float): Redshift of the target. Used together with `cosmo' to convert arcsec to kpc. 
-    aperture_integration_method (bool): The integration method used with the apertures. Can be either 'center' or 'exact'.
-    forbidden_labels (list): List of possible labels in the MaNGA datacube. Will ignore spaxels that are associated with any of these labels.
+    aperture_integration_method (bool): The integration method used with the apertures. Can be either 'center' or 'exact'. Recommended to use 'exact' if PA is close to 0, 90, or 180 degrees.
     deproject_bar (bool): Whether to deproject the bar using the PA, PA_bar and inclination of the galaxy. Strongly advised to always keep on True.
     correct_velcurve (bool): Whether to correct the velocity and positions for the inclination and PA of the galaxy while determining the velocity curve.
     velcurve_aper_width (int): How many pixels to use to determine the velocity curve.
+    pixscale (float): Pixel scale of the image. It is good to specify. If not, we try to calculate it 
+    name (str): A name for the object. E.g. an ID, or plate-ifu number. 
 
     Outputs:
     Returns TW class, defined in TremaineWeinberg.py. The TW class contains everything that is calculated. See Example.ipynb to see how to access it.
@@ -594,12 +655,16 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
     Currently, if n_iter = 0, it will run once with best-guess inputs. If n_iter > 0, it will run the iterations, Omega, Rcr and R are the
     median of all the iterations. After the iterations, it will run one last time with the best-guess inputs for all the figures etc. 
     All PAs are defined as East of North.
+
+
+    TODO: 
     '''
 
 
     #Part 0: initialise class and other stuff
-    tw = TW(PA, inc, barlen, PA_bar, maps, forbidden_labels, PA_err, inc_err, barlen_err, PA_bar_err, slit_width,cosmo, redshift) 
-    pixscale = get_pixscale(tw)
+    tw = TW(velocity, flux, position, PA, inc, barlen, PA_bar, velocity_err, flux_err, PA_err, inc_err, barlen_err, PA_bar_err, mask, slit_width,cosmo, redshift,name) 
+    if pixscale == None:
+        pixscale = get_pixscale(tw.on_sky_xy)
     centre = get_centre(tw.stellar_flux)
 
     # Part 1 - 5 are in this loop
@@ -658,7 +723,7 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
         # Part 4: Convert slits to actual apertures
         points = get_slit_centres(tw.stellar_flux,slits,centre)
         if slit_length_method == 'default':
-            hex_map = create_hexagon_map(tw.stellar_vel,forbidden_labels)
+            hex_map = create_hexagon_map(tw.stellar_vel,tw.mask)
         else:
             hex_map = []
 
@@ -681,11 +746,11 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
                     aper_Omegas[1].append(aper_Omega)
 
         # Step 5: Do integration and determine Omega
-        Xs, Vs, z, Omega = determine_pattern_speed(tw.stellar_flux, X_Sigma, V_Sigma, apers, inc_temp, aperture_integration_method, forbidden_labels = tw.forbidden_labels)
+        Xs, Vs, z, Omega = determine_pattern_speed(tw.stellar_flux, X_Sigma, V_Sigma, apers, inc_temp, aperture_integration_method, tw.mask)
         
 
         # Step 6: Find V curve and corotation radius
-        R_corot, vel, arcsec, V_curve_apers, V_curve_fit_params = determine_corotation_radius(Omega, tw.stellar_vel, tw.on_sky_xy, centre, PA_temp, inc_temp, maps, forbidden_labels = tw.forbidden_labels, correct_velcurve = correct_velcurve, velcurve_aper_width = velcurve_aper_width)
+        R_corot, vel, arcsec, V_curve_apers, V_curve_fit_params = determine_corotation_radius(Omega, tw.stellar_vel, tw.on_sky_xy, centre, PA_temp, inc_temp, tw.mask, correct_velcurve = correct_velcurve, velcurve_aper_width = velcurve_aper_width)
         delta_PA = np.abs(PA_temp - PA_bar_temp)
         if deproject_bar:
             bar_rad_deproj = barlen_temp/2 * np.sqrt(np.cos(delta_PA/180*np.pi)**2 + np.sin(delta_PA/180*np.pi)**2 / np.cos(inc_temp/180*np.pi)**2) #https://ui.adsabs.harvard.edu/abs/2007MNRAS.381..943G/abstract
@@ -719,6 +784,7 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
         R_err_ll = R - np.nanpercentile(tw.R_lst,16)
 
     # Part -1: Save results and return
+
     tw.save_results(centre, cosmo, pixscale, (m_LON, b_LON), slits, apers, aper_Omegas, X_map, X_Sigma, V_Sigma, [Xs, Vs], z, Omega, (Omega_err_ll, Omega_err_ul), R_corot, (R_corot_err_ll, R_corot_err_ul), R, (R_err_ll, R_err_ul), [arcsec, vel], V_curve_apers, V_curve_fit_params, bar_rad_deproj*2) 
     return tw
 
@@ -737,30 +803,29 @@ def Tremaine_Weinberg(PA, inc, barlen, PA_bar, maps, PA_err = 0.0, inc_err = 0.0
 
 # Part 0: Prepare MaNGA masks
 
-def get_Vsys(stellar_vel, on_sky_xy, arcsec_range, forbidden_labels = ['DONOTUSE']):
+def get_Vsys(stellar_vel, on_sky_xy, arcsec_range, mask):
     '''
-    It looks like not all MaNGA maps have Vsys correctly removed. We can estimate Vsys by looking at the 
-    central 5arcsecs. 
+    We can estimate Vsys by looking at the central 5arcsecs. 
     '''
 
-    stellar_vel_pixmask = stellar_vel.pixmask.get_mask(forbidden_labels)
-    stellar_vel_value = stellar_vel.value
+    #stellar_vel_pixmask = stellar_vel.pixmask.get_mask(forbidden_labels)
+    #stellar_vel_value = stellar_vel.value
 
     # get Vsys
     central_vels = []
     for i in range(len(stellar_vel)):
         for j in range(len(stellar_vel[i])):
             if on_sky_xy[i][j] < arcsec_range:
-                if not stellar_vel_pixmask[i][j] >=1:
-                    central_vels.append(stellar_vel_value[i][j])
+                if not mask[i][j]:
+                    central_vels.append(stellar_vel[i][j])
     
     Vsys = np.nanmean(central_vels)
 
     # apply Vsys
     for i in range(len(stellar_vel)):
         for j in range(len(stellar_vel[i])):
-            if not stellar_vel_pixmask[i][j] >=1:
-                stellar_vel.value[i][j] = stellar_vel_value[i][j] - Vsys
+            if not mask[i][j]:
+                stellar_vel[i][j] = stellar_vel[i][j] - Vsys
 
 
     return stellar_vel, Vsys
@@ -794,10 +859,10 @@ def get_centre(mapp, centre_method = 'brightest', sigma = 3):
     assert centre_method in ['brightest','centre']
     
     if centre_method == 'centre':
-        return (math.ceil(mapp.value.shape[0]/2),math.ceil(mapp.value.shape[1]/2)) 
+        return (math.ceil(mapp.shape[0]/2),math.ceil(mapp.shape[1]/2)) 
     
     if centre_method == 'brightest':
-        gaussian_field = scipy.ndimage.gaussian_filter(mapp.value, sigma=sigma)
+        gaussian_field = scipy.ndimage.gaussian_filter(mapp, sigma=sigma)
         inds = np.where(gaussian_field == np.max(gaussian_field))
         if len(inds[0]) > 1:
             #if more than one pixel found, take one closest to actual centre
@@ -821,7 +886,6 @@ def get_LON(mapp, PA, centre):
     LON should go through centre and aligned with PA. So we have an angle and point
     '''
     PA_rad = PA * np.pi / 180.
-    values = mapp.value
     p1 = centre #the centre
     p2 = (p1[0] + 10 * np.sin(PA_rad), p1[1] + 10 * np.cos(PA_rad)) #10 is arbitrary, could be anything.
     
@@ -831,29 +895,24 @@ def get_LON(mapp, PA, centre):
     return m,b
 
 
-def get_pixscale(tw):
+def get_pixscale(maps):
     '''
-    Can also just do return 0.5, I believe.
+    
     '''
-    seps_x = []
-    # for on_sky_x
-    temp = tw.on_sky_x.value #to make it faster
-    for i in range(len(tw.on_sky_x)):
-        for j in range(len(tw.on_sky_x[i])-1):
-            sep = np.abs(temp[i][j] - temp[i][j+1])
-            seps_x.append(sep)
-
-    seps_y = []
-    temp = tw.on_sky_y.value #to make it faster
-    for j in range(len(tw.on_sky_y[0])):
-        for i in range(len(tw.on_sky_y)-1):
-            sep = np.abs(temp[i][j] - temp[i+1][j])
-            seps_y.append(sep)
-
-    sep = np.average(np.array([seps_x,seps_y]).flatten())
-    return sep
+    yc, xc = np.unravel_index(np.argmin(maps), maps.shape)#Assume lowest distance is the centre
     
+    # pixel distances from this centre
+    yy, xx = np.indices(maps.shape)
+    r_pix = np.sqrt((xx - xc)**2 + (yy - yc)**2)
+    mask = r_pix > 0 #avoid dividing by 0
     
+    # estimate pixscale
+    pixscale = np.median(maps[mask] / r_pix[mask])
+    return pixscale
+
+
+    
+
 
 # Part 2: Get other slits
 
@@ -894,7 +953,7 @@ def get_pseudo_slits(mapp,LON,PA, PA_bar, barlength, centre, sep = 1, width_slit
     '''
     
     delta_PA = np.abs(PA - PA_bar)
-    corr_factor = np.abs(np.sin(delta_PA/180*np.pi)) 
+    corr_factor = np.abs(np.sin(delta_PA/180*np.pi)) #Is it sin? Not Cos? Double check. 
     
     pseudo_slits = [LON]
     
@@ -931,7 +990,7 @@ def create_X_map(mapp, LON, centre, sep):
     '''
     x-axis should be aligned with LON.
     '''
-    empty = np.full_like(mapp.value,np.nan)
+    empty = np.full_like(mapp,np.nan)
 
     m_pLON = -1/LON[0] #m1 * m2 = -1 for perpendicular lines
     b_pLON = -m_pLON * centre[0] + centre[1]
@@ -1011,13 +1070,13 @@ def plot_aper_contours(aper, color = 'white', aper_type = 'RectAper', ls = '-', 
 
     aper_plot.plot(color=color, ls = ls, alpha = alpha, zorder = 100)
 
-def create_hexagon_map(mapp,forbidden_labels):
+def create_hexagon_map(mapp,mask):
     # Can probably do this much more efficiently
-    newmap = np.full_like(mapp.value,0)
-    mapp_pixmask = mapp.pixmask.get_mask(forbidden_labels, dtype = bool)
+    newmap = np.full_like(mapp,0)
+    #mapp_pixmask = mapp.pixmask.get_mask(forbidden_labels, dtype = bool)
     for i in range(len(mapp)):
         for j in range(len(mapp[i])):
-            if mapp_pixmask[i][j]:
+            if mask[i][j]:
                 newmap[i][j] = 1
     return newmap
 
@@ -1116,8 +1175,8 @@ def aperture_convergence(aper, X_Sigma, V_Sigma, aperture_integration_method, co
     for i, sl in enumerate(slit_lengths):
         aper_temp = photutils.aperture.RectangularAperture(aper.positions, w = aper.w, h = sl, theta = aper.theta)
         # Don't need to calculate flux integral here as it cancels out
-        phot_table_X = photutils.aperture.aperture_photometry(X_Sigma.value, aper_temp, method = aperture_integration_method)
-        phot_table_V = photutils.aperture.aperture_photometry(V_Sigma.value, aper_temp, method = aperture_integration_method)
+        phot_table_X = photutils.aperture.aperture_photometry(X_Sigma, aper_temp, method = aperture_integration_method)
+        phot_table_V = photutils.aperture.aperture_photometry(V_Sigma, aper_temp, method = aperture_integration_method)
         X = float(phot_table_X['aperture_sum'])
         V = float(phot_table_V['aperture_sum'])
         if X != 0:
@@ -1139,7 +1198,7 @@ def aperture_convergence(aper, X_Sigma, V_Sigma, aperture_integration_method, co
 
 # Step 5: Do integration and determine Omega
 
-def determine_pattern_speed(stellar_flux, X_Sigma, V_Sigma, apers, inc, aperture_integration_method, forbidden_labels = ['DONOTUSE']):
+def determine_pattern_speed(stellar_flux, X_Sigma, V_Sigma, apers, inc, aperture_integration_method, mask):
     '''
     Takes the flux, X_Sigma, V_Sigma, apertures and inclination of the galaxy and returns the Xs and Vs integrals, the slope of the fitted line and the pattern speed.
     '''
@@ -1147,15 +1206,15 @@ def determine_pattern_speed(stellar_flux, X_Sigma, V_Sigma, apers, inc, aperture
     Vs = []
 
     for aper in apers:#can I ignore forbidden_labels here? -> Yes
-        phot_table_flux = photutils.aperture.aperture_photometry(stellar_flux.value, aper, method = aperture_integration_method)
+        phot_table_flux = photutils.aperture.aperture_photometry(stellar_flux, aper, method = aperture_integration_method)
         flux = float(phot_table_flux['aperture_sum'])
 
         if flux == 0:
             continue #just ignore
         else: #can I ignore forbidden_labels here? -> Yes
-            phot_table_X = photutils.aperture.aperture_photometry(X_Sigma.value, aper, method = aperture_integration_method)
+            phot_table_X = photutils.aperture.aperture_photometry(X_Sigma, aper, method = aperture_integration_method)
             Xs.append(float(phot_table_X['aperture_sum'])/flux)
-            phot_table_V = photutils.aperture.aperture_photometry(V_Sigma.value, aper, method = aperture_integration_method)
+            phot_table_V = photutils.aperture.aperture_photometry(V_Sigma, aper, method = aperture_integration_method)
             
             Vs.append(float(phot_table_V['aperture_sum'])/flux)
 
@@ -1248,16 +1307,54 @@ def velFunc(xdata, Vflat,rt):
 
 
 
-def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, maps, forbidden_labels = ['DONOTUSE'], correct_velcurve = True, velcurve_aper_width = 10):
+def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, mask, correct_velcurve = True, velcurve_aper_width = 10):
     '''
     Calculates the corotation radius, based on all the other parameters.
+
+
+
+    TODO: instead of deprojecting the velfield and accounting for phi, just model a 2d field and fix inc and phi.
+    It doesn't have the same issue with values blowing up. 
+    For example:
+
+    # See how well a simple curve_fit would have done
+    p0 = np.array([200, 10])
+    popt, pcov = curve_fit(lambda X, vc, rt: model(X, vc, rt, eps, PA), 
+                            X, vel, sigma = vel_err,
+                            bounds = ([0, 0],[np.inf, np.inf]), 
+                            p0 = p0,
+                            maxfev=10000)
+
+    # Print out estimates
+    print('CF estimates:\n')
+    for i in range(ndim):
+        print(f'{labels[i]} = {popt[i]:.2f}+-{np.sqrt(pcov[i][i]):.2f}')
+
+    def model(X, vc, rt, eps, PA):
+        field = []
+        PA = DegToRad(PA)
+        inc = np.arccos(1-eps)
+        
+        for i in range(len(X[0])):
+            x = X[0][i]
+            y = X[1][i]
+                
+            r, theta = cart2pol(x,y)
+
+            phi = theta - PA
+        
+            v = 2/np.pi * vc*np.arctan(r/rt)*np.sin(inc)*np.cos(phi)
+        
+            field.append(v)
+        return field
     '''
     # Find the rectangular aperature
     aper_rect = photutils.aperture.RectangularAperture(centre, w = velcurve_aper_width, h = stellar_vel.shape[0]*1.5, theta = (-PA)/180*np.pi) #-PA due to how photutils deal with their theta
 
 
     # apply the rect aperature first
-    stellar_vel_rect = aper_rect.to_mask(method = 'center').to_image(shape = (stellar_vel.shape)) * stellar_vel.value * (stellar_vel.pixmask.get_mask(forbidden_labels)<1).astype(int) #last bit is to incorporate stellar_vel mask
+    #stellar_vel_rect = aper_rect.to_mask(method = 'center').to_image(shape = (stellar_vel.shape)) * stellar_vel.value * (stellar_vel.pixmask.get_mask(forbidden_labels)<1).astype(int) #last bit is to incorporate stellar_vel mask
+    stellar_vel_rect = aper_rect.to_mask(method = 'center').to_image(shape = (stellar_vel.shape)) * stellar_vel * (~mask).astype(int) #last bit is to incorporate stellar_vel mask
     on_sky_xy_rect = aper_rect.to_mask(method = 'center').to_image(shape = (on_sky_xy.shape)) * on_sky_xy
     
     # apply correction (from inclination and phi)
@@ -1329,7 +1426,7 @@ def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, 
             else:
                 buffer = buffer * 1.2
 
-            if arcsec_max > 3600: #if larger than an deg, it is not meaningful. Probably something else went wrong.
+            if arcsec_max > 3600: #if larger than a deg, it is not meaningful. Probably something else went wrong.
                 R_corot = np.nan
                 break
 
@@ -1341,6 +1438,145 @@ def determine_corotation_radius(Omega, stellar_vel, on_sky_xy, centre, PA, inc, 
     return R_corot, vel, arcsec, [aper_rect, apers_circ], [popt,pcov,np.array([MSE])]
 
 
+
+
+
+################
+### Plotting ###
+################
+
+
+def plot_ifu(data, sigma = None, mask = None, colorbar = False, snr_min = 0.0, cmap = 'RdBu_r', preset = '', 
+                   percentiles_clip = (1,99), colorbar_symmetric = False, colorbar_label = ''):
+    
+    '''
+    More info on official MaNGA plots: https://sdss-marvin.readthedocs.io/en/latest/tools/utils/plot-map.html
+    
+    Goal of this function is to closely recreate the standard MaNGA plotting layout, but made by myself so I can edit whatever I want.
+    
+    Args:
+    colorbar is bool to plot colorbar
+    snr_min is the minimum pix snr allowed
+    preset can be either 'default',' velocities' or 'velocity dispersions', which follow the same setup as described in the table in the link above. Should copy MaNGA input
+
+    '''
+
+
+    data = copy.deepcopy(data)
+    sigma = copy.deepcopy(sigma)
+    mask = copy.deepcopy(mask)
+    
+
+
+    # set preset
+    if preset == 'default':
+        if snr_min == 0:
+            snr_min = 1.0
+        cmap = 'viridis'
+        percentiles_clip = (5,95)
+        colorbar_symmetric = False
+        
+    if preset == 'velocities':
+        if snr_min == 0:
+            snr_min = 0.0
+        cmap = 'RdBu_r'
+        percentiles_clip = (10,90)
+        colorbar_symmetric = True
+        
+    if preset == 'velocity dispersions':
+        if snr_min == 0:
+            snr_min = 1.0
+        cmap = 'inferno'
+        percentiles_clip = (10,90)
+        colorbar_symmetric = False
+    
+    if preset == 'delta velocities':
+        if snr_min == 0:
+            snr_min = 0.0
+        cmap = 'RdBu_r'
+        percentiles_clip = (10,90)
+        colorbar_symmetric = False
+
+    if preset == 'delta velocity dispersions':
+        if snr_min == 0:
+            snr_min = 0.0
+        cmap = 'inferno'
+        percentiles_clip = (10,90)
+        colorbar_symmetric = False
+    
+    
+
+
+    if type(sigma) == type(None):
+        sigma = np.full_like(np.array(data), 0)
+        
+    if type(mask) == type(None):
+        mask = np.full_like(np.array(data), False)
+
+
+    
+    background = np.full_like(np.array(data), 0)
+    masked = np.full_like(np.array(data), np.nan)
+
+    
+    xlst = []
+    ylst = []
+
+    snr = np.abs(data/sigma)
+    snr[np.isnan(snr)] = -1
+    lowsnr = snr <= snr_min
+
+    
+    for x in range(len(data)):
+        xs = []
+        ys = []
+        for y in range(len(data[x])):
+            xs.append(x+0.5)
+            ys.append(y+0.5)
+        
+            
+            if mask[x][y] or lowsnr[x][y]: #so either masked or it has low snr
+                data[x][y] = np.nan #means data is masked. So either background or masked region
+
+                masked[x][y] = 1 #so in background region
+                background[x][y] = 1 #so in background region (but also in masked)
+                      
+        
+        xlst.append(xs)
+        ylst.append(ys)
+        
+    
+    lowdata = np.nanpercentile(data.flatten(),percentiles_clip[0])
+    highdata = np.nanpercentile(data.flatten(),percentiles_clip[1])
+    
+
+    if colorbar_symmetric:
+        symval = np.max([np.abs(lowdata), np.abs(highdata)])
+        highdata = symval
+        lowdata = -symval
+            
+                    
+    
+    #if colorbar:
+    #    plt.figure(figsize=(6.3,5)) #to make place for colorbar. Not sure if this is best solution though when working with subplots etc
+    #else:
+    #    plt.figure(figsize=(5,5)) 
+                
+                
+    #background region. this colors everything that is in background or masked region grey
+    col_transparent = (1.,1.,1.,0.)
+    col_grey = (168/255,168/255,168/255,1)
+    cmap_grey = mpl.colors.ListedColormap([col_transparent,col_grey])
+    plt.pcolormesh(background, cmap = cmap_grey,rasterized=True)
+    
+    #masked region. this will draw the hatch in the masked region
+    plt.pcolor(ylst, xlst, masked, hatch='xxxx', cmap = cmap_grey, edgecolor = 'white',linewidth=0,shading = 'nearest',rasterized=True) #shading = 'auto' done to surpress a warning. linewidth = 0 removes the normal gridlines
+    
+    plt.pcolormesh(data,cmap = cmap,vmin=lowdata,vmax=highdata,rasterized=True)
+    
+    if colorbar:
+        cbar = plt.colorbar()
+        cbar.set_label(colorbar_label, fontsize = 14, rotation=270, labelpad=20)
 
 
 

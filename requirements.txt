@@ -1,9 +1,6 @@
 numpy # Tested with 1.26.0
 matplotlib # Tested with 3.8.1
-math # Built-in python
 photutils # Tested with 1.9.0
-sdss-marvin # Tested with 2.8.0
-scipy # Tested with 1.11.3
-pickle # Built-in python
+scipy # Tested with 1.15.3
 csv # Tested with 1.0
 astropy # Tested with 5.3.4
