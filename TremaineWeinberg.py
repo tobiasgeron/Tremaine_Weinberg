@@ -631,6 +631,7 @@ def Tremaine_Weinberg(velocity, flux, position, PA, inc, barlen, PA_bar, velocit
     inc_err (float): Error on the inclination of the galaxy, in degrees.
     barlen_err (float): Error on the length of the bar, in arcsec (error on the entire bar, not bar radius!).
     PA_bar_err (float): Error on the PA of the bar, in degrees.
+    mask (np.array): Numpy array that masks out parts of the velocity/flux arrays. Pixels with "True" will be ignored. Highly recommended you use this to mask out outer regions of the galaxy and/or low SNR spaxels.
 
     slit_width (float): Width of each slit, in arcsec.
     slit_separation (float): Separation between slits, in arcsec.
