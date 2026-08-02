@@ -1,7 +1,7 @@
 # Tremaine_Weinberg
 
 [![DOI](https://zenodo.org/badge/493622015.svg)](https://zenodo.org/badge/latestdoi/493622015)
-
+[![ADS](https://img.shields.io/badge/ADS-Paper-blue.svg)](https://ui.adsabs.harvard.edu/abs/2023MNRAS.521.1775G/abstract)
 
 Please cite [Géron et al. (2023)](https://ui.adsabs.harvard.edu/abs/2023MNRAS.521.1775G/abstract) when using this code.
 
